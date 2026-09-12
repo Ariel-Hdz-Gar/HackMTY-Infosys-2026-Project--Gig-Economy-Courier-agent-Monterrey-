@@ -10,6 +10,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "
 
 from Motor_Matematico import SmartAgent, BaselineAgent, activar_evento
 from Tiger_Data_io import leer_pedidos_pendientes, sincronizar_log_completo
+from Backend.Backend_Dev2.Debate_Rutas import debatir_rutas 
 from Debate_Rutas import debatir_rutas, generar_opciones_ruta
 from Motor_Matematico import Order
 
@@ -108,13 +109,16 @@ col_roja, col_azul, col_naranja = st.columns([1, 2, 1])
 
 # --- AREA ROJA ---
 with col_roja:
-    st.header("Decision en Vivo")
+    st.header("Decisión en Vivo")
     
-    st.subheader("Agente Baseline")
-    st.error(f"Aceptando orden #{orden_id}. \n\nRuta directa sin considerar eventos dinamicos.")
+    st.subheader("🤖 Agente Baseline")
+    st.error(f"Orden #{orden_id} activa\n\n• Estrategia: Voraz (Distancia mínima fija)\n• Penalizaciones dinámicas: Ignoradas")
     
-    st.subheader("Agente Inteligente (Gemini)")
-    st.success(razonamiento_smart)
+    st.subheader("🧠 Agente Smart")
+    st.success(f"Orden #{orden_id} activa\n\n• Estrategia: Optimización Multivariable\n• Ajuste: Clima/Tráfico integrados")
+
+    st.subheader("⚖️ Veredicto de Gemini")
+    st.info(razonamiento_smart)
 
 # --- AREA AZUL (MAPA) ---
 with col_azul:
