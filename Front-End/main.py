@@ -10,7 +10,23 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "
 
 from Motor_Matematico import SmartAgent, BaselineAgent, activar_evento
 from Tiger_Data_io import leer_pedidos_pendientes, sincronizar_log_completo
+# 1. Corregimos la ruta saltando directo a Backend_Dev1 (sin la carpeta intermedia)
+ruta_dev1 = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "Backend_Dev1"))
+sys.path.append(ruta_dev1)
 
+from generator import generate_single_order, load_or_create_graph
+
+# 2. Cargar el mapa de Monterrey en caché (Excelente práctica)
+@st.cache_resource
+def obtener_grafo():
+    return load_or_create_graph()
+
+G = obtener_grafo()
+
+# 3. Interfaz del botón en la barra lateral
+if st.sidebar.button("⚡ Generar Nueva Orden"):
+    nueva_id = generate_single_order(G)
+    st.sidebar.success(f"¡Orden #{nueva_id} generada en Tiger Data!")
 # ==========================================
 # 1. CONFIGURACION DE PAGINA
 # ==========================================
