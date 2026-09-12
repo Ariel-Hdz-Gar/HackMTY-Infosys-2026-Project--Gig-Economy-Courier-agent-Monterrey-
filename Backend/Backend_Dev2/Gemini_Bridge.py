@@ -134,6 +134,86 @@ def resumen_agente(agente_state) -> Dict:
     }
 
 
+def construir_propuesta_ruta(nombre_agente: str, agente_state, pedidos_por_id: Dict[str, object]) -> Dict:
+    """Arma un dict con la forma EXACTA que espera PropuestaRuta de Dev 3
+    (schemas.py): agente, ruta_nodos, tiempo_est_min, ganancia_neta_mxn,
+    argumento_agente. pedidos_por_id: {order_id: Order} -- para recuperar
+    origen/destino reales de cada pedido aceptado y calcular el tiempo."""
+    from Motor_Matematico import distancia_km, VELOCIDAD_KMH
+
+    aceptados = [e for e in agente_state.log if e.get("accion") == "aceptado"]
+    ruta_nodos: List[str] = []
+    tiempo_total_min = 0.0
+
+    for entrada in aceptados:
+        oid = entrada.get("orden_id")
+        orden = pedidos_por_id.get(oid)
+        if orden:
+            ruta_nodos.append(
+                f"Pedido #{oid}: ({orden.origen[0]:.4f},{orden.origen[1]:.4f}) "
+                f"-> ({orden.destino[0]:.4f},{orden.destino[1]:.4f})"
+            )
+            dist_km = distancia_km(orden.origen, orden.destino)
+            tiempo_total_min += (dist_km / VELOCIDAD_KMH) * 60
+        else:
+            ruta_nodos.append(f"Pedido #{oid}")
+
+    if not ruta_nodos:
+        ruta_nodos = ["Sin pedidos aceptados en este ciclo"]
+
+    if nombre_agente.upper() == "SMART":
+        argumento = (
+            f"Evaluó {len(agente_state.log)} pedidos con OR-Tools: aceptó "
+            f"{len(aceptados)} por margen neto positivo y tiempo alcanzable, "
+            f"descartando el resto por rentabilidad o plazo."
+        )
+    else:
+        argumento = (
+            f"Aceptó {len(aceptados)} pedido(s) por orden de llegada (FIFO), "
+            f"sin evaluar rentabilidad ni tiempo de entrega."
+        )
+
+    return {
+        "agente": nombre_agente.capitalize(),
+        "ruta_nodos": ruta_nodos,
+        "tiempo_est_min": round(tiempo_total_min),
+        "ganancia_neta_mxn": round(agente_state.ganancia_total, 2),
+        "argumento_agente": argumento,
+    }
+
+
+def evaluar_rutas_con_dev3(evento_contexto: str, propuesta_baseline: Dict,
+                            propuesta_smart: Dict) -> Dict:
+    """Llama al endpoint REAL de Dev 3 (/evaluar-rutas) con el schema exacto
+    que espera SolicitudMediacion. Regresa {'agente_ganador':..., 'explicacion_gemini':...}
+    (RespuestaMediacion), o un respaldo simulado si su servicio no responde."""
+    try:
+        response = requests.post(
+            GEMINI_SERVICE_URL,
+            json={
+                "evento_contexto": evento_contexto,
+                "opcion_baseline": propuesta_baseline,
+                "opcion_smart": propuesta_smart,
+            },
+            timeout=15,
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.ConnectionError:
+        logger.warning(
+            f"No se pudo conectar al microservicio de Dev 3 en {GEMINI_SERVICE_URL}. "
+            f"¿Está corriendo 'uvicorn main:app --port 8000'?"
+        )
+        return {
+            "agente_ganador": propuesta_smart.get("agente", "Smart"),
+            "explicacion_gemini": "[Sin conexión al servicio de Gemini de Dev 3]",
+        }
+    except Exception as e:
+        logger.warning(f"Error llamando al microservicio de Dev 3: {e}")
+        return {"agente_ganador": propuesta_smart.get("agente", "Smart"),
+                "explicacion_gemini": f"[Error conectando a FastAPI: {e}]"}
+
+
 def prompt_evento_disruptor(evento_info: Dict, resumen_antes: Dict, resumen_despues: Dict) -> str:
     return (
         f"Eres el sistema de explicabilidad de un repartidor autónomo en "
@@ -158,14 +238,33 @@ def prompt_evento_disruptor(evento_info: Dict, resumen_antes: Dict, resumen_desp
 
 def explicar_evento_disruptor(evento_info: Dict, agente_antes, agente_despues,
                                 generador_texto: Callable[[str], str] = call_gemini) -> str:
-    """Punto de entrada que llama motor_matematico.py (o main.py) justo
-    después de activar_evento() y volver a correr ejecutar_turno().
-    agente_antes / agente_despues son AgentState (o cualquier objeto con
-    .ganancia_total y .log)."""
+    """Versión simple (texto plano, para casos donde no tienes los pedidos
+    originales a la mano). Usa el stub/adaptador genérico call_gemini().
+    Para conectar con el endpoint REAL de Dev 3, usa explicar_evento_con_dev3()
+    en su lugar -- esa sí manda el JSON estructurado que su servicio espera."""
     resumen_antes = resumen_agente(agente_antes)
     resumen_despues = resumen_agente(agente_despues)
     prompt = prompt_evento_disruptor(evento_info, resumen_antes, resumen_despues)
     return generador_texto(prompt)
+
+
+def explicar_evento_con_dev3(evento_texto: str, pedidos: List, baseline_state,
+                               smart_state) -> Dict:
+    """Punto de entrada recomendado: arma el JSON con la forma exacta que
+    espera el microservicio real de Dev 3 y lo llama.
+
+    evento_texto: descripción libre del evento, ej. "Lluvia intensa en zona
+                  de Contry" -- esto llena evento_contexto.
+    pedidos: la lista de Order que se le pasó a ambos agentes (para poder
+             reconstruir origen/destino de cada pedido aceptado).
+    baseline_state / smart_state: AgentState de cada agente tras correr.
+
+    Regresa {'agente_ganador':..., 'explicacion_gemini':...} listo para
+    mostrar en pantalla."""
+    pedidos_por_id = {p.order_id: p for p in pedidos}
+    propuesta_baseline = construir_propuesta_ruta("Baseline", baseline_state, pedidos_por_id)
+    propuesta_smart = construir_propuesta_ruta("Smart", smart_state, pedidos_por_id)
+    return evaluar_rutas_con_dev3(evento_texto, propuesta_baseline, propuesta_smart)
 
 
 # ---------------------------------------------------------------------------
