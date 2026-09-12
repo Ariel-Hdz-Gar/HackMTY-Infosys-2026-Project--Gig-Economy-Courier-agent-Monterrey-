@@ -8,11 +8,15 @@ import networkx as nx
 if sys.stdout.encoding != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
 
+# Asegurar que el directorio raíz del proyecto esté en el path de importación
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from environment import load_or_create_graph, get_random_nodes, get_node_coords, calculate_route_distance
 
 def create_interactive_map(output_file: str = "mapa_monterrey.html", num_orders: int = 5):
     print("📍 Cargando grafo vial de Monterrey...")
-    G = load_or_create_graph()
+    graph_path = os.path.join(os.path.dirname(__file__), "..", "monterrey_drive.graphml")
+    G = load_or_create_graph(filepath=graph_path)
     
     # Coordenadas centrales de Monterrey (Macroplaza / Centro)
     mty_center = [25.6714, -100.3095]
@@ -40,14 +44,12 @@ def create_interactive_map(output_file: str = "mapa_monterrey.html", num_orders:
     
     print(f"🚴 Generando {num_orders} órdenes simuladas con ruteo real en calles...")
     for i in range(1, num_orders + 1):
-        # Seleccionar nodos aleatorios
         nodes = get_random_nodes(G, n=2)
         orig_node, dest_node = nodes[0], nodes[1]
         
         orig_lat, orig_lon = get_node_coords(G, orig_node)
         dest_lat, dest_lon = get_node_coords(G, dest_node)
         
-        # Calcular ruta más corta por calles
         try:
             route_nodes = nx.shortest_path(G, source=orig_node, target=dest_node, weight="length")
             distance_meters = nx.shortest_path_length(G, source=orig_node, target=dest_node, weight="length")
@@ -58,10 +60,8 @@ def create_interactive_map(output_file: str = "mapa_monterrey.html", num_orders:
         fare = round(max(40.0, min(200.0, 30.0 + (km * 12.0))), 2)
         color = colors[(i - 1) % len(colors)]
         
-        # Extraer coordenadas reales de la ruta curva por las calles
         route_coords = [get_node_coords(G, n) for n in route_nodes]
         
-        # 1. Marcador de Origen (Pickup)
         folium.Marker(
             location=[orig_lat, orig_lon],
             popup=folium.Popup(
@@ -79,7 +79,6 @@ def create_interactive_map(output_file: str = "mapa_monterrey.html", num_orders:
             icon=folium.Icon(color="green", icon="cutlery", prefix="fa")
         ).add_to(m)
         
-        # 2. Marcador de Destino (Dropoff)
         folium.Marker(
             location=[dest_lat, dest_lon],
             popup=folium.Popup(
@@ -97,7 +96,6 @@ def create_interactive_map(output_file: str = "mapa_monterrey.html", num_orders:
             icon=folium.Icon(color="red", icon="home", prefix="fa")
         ).add_to(m)
         
-        # 3. Trazo vial exacto por las calles de Monterrey
         folium.PolyLine(
             locations=route_coords,
             color=color,
@@ -114,7 +112,6 @@ def create_interactive_map(output_file: str = "mapa_monterrey.html", num_orders:
             "dest_node": dest_node
         })
 
-    # Tarjeta flotante con resumen para presentación a jueces/equipo
     summary_html = f"""
     <div style="
         position: fixed; 
@@ -152,9 +149,9 @@ def create_interactive_map(output_file: str = "mapa_monterrey.html", num_orders:
     m.get_root().html.add_child(folium.Element(summary_html))
     folium.LayerControl().add_to(m)
     
-    # Guardar mapa HTML
-    m.save(output_file)
-    abs_path = os.path.abspath(output_file)
+    out_path = os.path.join(os.path.dirname(__file__), "..", output_file)
+    m.save(out_path)
+    abs_path = os.path.abspath(out_path)
     print(f"MAPA_GENERADO:{abs_path}")
     return abs_path
 
