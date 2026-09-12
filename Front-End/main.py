@@ -11,6 +11,21 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "
 from Motor_Matematico import SmartAgent, BaselineAgent, activar_evento
 from Tiger_Data_io import leer_pedidos_pendientes, sincronizar_log_completo
 
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Backend", "Backend_Dev1"))
+from generator import generate_single_order, load_or_create_graph
+
+# Cargar el mapa de Monterrey una sola vez
+@st.cache_resource
+def obtener_grafo():
+    return load_or_create_graph()
+
+G = obtener_grafo()
+
+# En la barra lateral (Sidebar) de Streamlit:
+if st.sidebar.button("⚡ Generar Nueva Orden"):
+    nueva_id = generate_single_order(G)
+    st.sidebar.success(f"¡Orden #{nueva_id} generada en Tiger Data!")
+
 # ==========================================
 # 1. CONFIGURACION DE PAGINA
 # ==========================================

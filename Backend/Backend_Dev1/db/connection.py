@@ -30,25 +30,12 @@ DB_SSLMODE = os.getenv("DB_SSLMODE", "prefer")
 
 
 def get_db_connection():
-    """
-    Retorna una conexión activa a la base de datos PostgreSQL / Tiger Data.
-    Soporta tanto DATABASE_URL (URL completa) como variables individuales.
-    """
     try:
-        if DATABASE_URL:
-            conn = psycopg2.connect(DATABASE_URL)
-        else:
-            conn = psycopg2.connect(
-                host=DB_HOST,
-                port=DB_PORT,
-                dbname=DB_NAME,
-                user=DB_USER,
-                password=DB_PASSWORD,
-                sslmode=DB_SSLMODE
-            )
+        # Usa DATABASE_URL o TIGER_DATA_URL según lo tengas en tu archivo .env
+        conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
         return conn
     except Exception as e:
-        logger.error(f"Error al conectar con la base de datos: {e}")
+        print(f"Error conectando a Tiger Data: {e}")
         raise e
 
 
