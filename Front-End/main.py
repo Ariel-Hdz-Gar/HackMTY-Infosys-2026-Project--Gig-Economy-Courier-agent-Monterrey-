@@ -5,6 +5,11 @@ import psycopg2
 import os
 from dotenv import load_dotenv
 import time
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "Backend", "Backend_Dev2"))
+
+from Motor_Matematico import SmartAgent, BaselineAgent, activar_evento
+from Tiger_Data_io import leer_pedidos_pendientes, sincronizar_log_completo
 
 # ==========================================
 # 1. CONFIGURACION DE PAGINA
