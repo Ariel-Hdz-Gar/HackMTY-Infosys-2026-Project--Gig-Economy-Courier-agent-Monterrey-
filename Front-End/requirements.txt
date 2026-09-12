@@ -4,3 +4,5 @@ pandas
 python-dotenv
 psycopg2-binary
 folium
+streamlit
+streamlit-folium
