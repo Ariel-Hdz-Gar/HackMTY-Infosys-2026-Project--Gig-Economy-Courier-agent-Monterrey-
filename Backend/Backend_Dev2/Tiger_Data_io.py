@@ -154,10 +154,14 @@ _ACCION_A_STATUS = {
     "rechazado": "RECHAZADA",
 }
 
-def registrar_decision(agente: str, entrada_log: Dict):
+def registrar_decision(agente: str, entrada_log: Dict, conn=None):
     """Inserta en 'decisiones' (log de razonamiento). agente debe ser
     'BASELINE' o 'SMART' para que quede consistente con el resto del esquema.
-    order_id ahora es INTEGER con FK real a orders.id (ajuste de Dev 1)."""
+    order_id ahora es INTEGER con FK real a orders.id (ajuste de Dev 1).
+
+    Si se pasa 'conn' (una conexión ya abierta), la reutiliza sin abrir/
+    cerrar una nueva -- así sincronizar_log_completo() puede escribir
+    decenas de filas sobre UNA sola conexión en vez de una por fila."""
     order_id = entrada_log.get("orden_id") or entrada_log.get("order_id")
     accion = entrada_log.get("accion")
     razon = entrada_log.get("razon")
@@ -170,13 +174,19 @@ def registrar_decision(agente: str, entrada_log: Dict):
         INSERT INTO decisiones (order_id, agente, accion, razon, margen_neto, metadata)
         VALUES (%s, %s, %s, %s, %s, %s);
     """
-    with get_connection() as conn:
+    params = (int(order_id) if order_id else None,
+              agente, accion, razon, margen, json.dumps(metadata))
+
+    if conn is not None:
         with conn.cursor() as cur:
-            cur.execute(query, (int(order_id) if order_id else None,
-                                 agente, accion, razon, margen, json.dumps(metadata)))
+            cur.execute(query, params)
+    else:
+        with get_connection() as c:
+            with c.cursor() as cur:
+                cur.execute(query, params)
 
 
-def registrar_batching(agente: str, entrada_log: Dict):
+def registrar_batching(agente: str, entrada_log: Dict, conn=None):
     """Las entradas de 'batching' del log NO tienen un solo order_id (son un
     resumen de varios pedidos agrupados: {'accion':'batching','ordenes':[...],
     'ahorro_km':...}). Como decisiones.order_id es NOT NULL con FK, insertar
@@ -190,14 +200,22 @@ def registrar_batching(agente: str, entrada_log: Dict):
         INSERT INTO decisiones (order_id, agente, accion, razon, margen_neto, metadata)
         VALUES (%s, %s, %s, %s, %s, %s);
     """
-    with get_connection() as conn:
+
+    def _insertar(cur):
+        for oid in ordenes_del_grupo:
+            cur.execute(query, (int(oid), agente, "batching",
+                                 "agrupado_por_cercania", None, json.dumps(metadata)))
+
+    if conn is not None:
         with conn.cursor() as cur:
-            for oid in ordenes_del_grupo:
-                cur.execute(query, (int(oid), agente, "batching",
-                                     "agrupado_por_cercania", None, json.dumps(metadata)))
+            _insertar(cur)
+    else:
+        with get_connection() as c:
+            with c.cursor() as cur:
+                _insertar(cur)
 
 
-def actualizar_estado_orden(order_id: str, accion: str, agente: str):
+def actualizar_estado_orden(order_id: str, accion: str, agente: str, conn=None):
     """accion: 'aceptado' | 'rechazado' -> mapea a status real de la tabla orders.
     Escribimos sobre la tabla real (no la vista) porque ahí viven status y
     assigned_agent con sus nombres/valores originales."""
@@ -210,9 +228,15 @@ def actualizar_estado_orden(order_id: str, accion: str, agente: str):
         SET status = %s, assigned_agent = %s, updated_at = now()
         WHERE id = %s;
     """
-    with get_connection() as conn:
+    params = (nuevo_status, agente, int(order_id))
+
+    if conn is not None:
         with conn.cursor() as cur:
-            cur.execute(query, (nuevo_status, agente, int(order_id)))
+            cur.execute(query, params)
+    else:
+        with get_connection() as c:
+            with c.cursor() as cur:
+                cur.execute(query, params)
 
 
 ## NOTA: no hay función registrar_transaccion() aquí a propósito.
@@ -222,29 +246,40 @@ def actualizar_estado_orden(order_id: str, accion: str, agente: str):
 ## ganancia. Nuestro alcance termina en actualizar_estado_orden().
 
 
-def sincronizar_log_completo(agente_state, agente_nombre: str):
+def sincronizar_log_completo(agente_state, agente_nombre: str, conn=None):
     """agente_nombre debe ser 'BASELINE' o 'SMART'. Vuelca el log completo
     del AgentState: escribe el razonamiento en 'decisiones' y actualiza el
     status en 'orders'. El registro en 'transactions' NO se hace aquí:
-    lo dispara el simulator.py de Dev 1 cuando detecta el cambio a 'ACEPTADA'."""
-    for entrada in agente_state.log:
-        if entrada.get("accion") == "batching":
-            # entrada de resumen sin order_id único -> ruta especial
-            registrar_batching(agente_nombre, entrada)
-            continue
+    lo dispara el simulator.py de Dev 1 cuando detecta el cambio a 'ACEPTADA'.
 
-        registrar_decision(agente_nombre, entrada)
-        order_id = entrada.get("orden_id")
-        accion = entrada.get("accion")
-        if order_id and accion in ("aceptado", "rechazado"):
-            actualizar_estado_orden(order_id, accion, agente_nombre)
+    Si no se pasa 'conn', abre UNA sola conexión para todo el log completo
+    (en vez de una por cada fila -- esto es lo que hacía que 50 pedidos
+    tardaran una eternidad). Si main.py u otro caller ya tiene una conexión
+    abierta, pásala aquí para reutilizarla también."""
+    def _sincronizar(c):
+        for entrada in agente_state.log:
+            if entrada.get("accion") == "batching":
+                registrar_batching(agente_nombre, entrada, conn=c)
+                continue
+            registrar_decision(agente_nombre, entrada, conn=c)
+            order_id = entrada.get("orden_id")
+            accion = entrada.get("accion")
+            if order_id and accion in ("aceptado", "rechazado"):
+                actualizar_estado_orden(order_id, accion, agente_nombre, conn=c)
+
+    if conn is not None:
+        _sincronizar(conn)
+    else:
+        with get_connection() as c:
+            _sincronizar(c)
 
 
 def ejecutar_ciclo_completo(posicion_inicial: tuple, limit: int = 50):
     """Corre Baseline Y Smart en paralelo sobre el MISMO lote de pedidos
     pendientes (cada uno con su propia copia de estado, para que la
     comparación de ganancias sea justa), y sincroniza el log de ambos a
-    Tiger Data. Esto es lo que la demo necesita mostrar lado a lado."""
+    Tiger Data usando UNA SOLA conexión para todo el ciclo (mucho más
+    rápido que abrir una conexión nueva por cada fila)."""
     from Motor_Matematico import BaselineAgent, SmartAgent
 
     pedidos = leer_pedidos_pendientes(limit=limit)
@@ -257,8 +292,9 @@ def ejecutar_ciclo_completo(posicion_inicial: tuple, limit: int = 50):
     smart = SmartAgent(posicion_inicial)
     smart.ejecutar_turno(pedidos)
 
-    sincronizar_log_completo(baseline.state, agente_nombre="BASELINE")
-    sincronizar_log_completo(smart.state, agente_nombre="SMART")
+    with get_connection() as conn:
+        sincronizar_log_completo(baseline.state, agente_nombre="BASELINE", conn=conn)
+        sincronizar_log_completo(smart.state, agente_nombre="SMART", conn=conn)
 
     return baseline.state, smart.state
 
