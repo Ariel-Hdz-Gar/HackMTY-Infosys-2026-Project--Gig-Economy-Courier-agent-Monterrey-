@@ -13,7 +13,7 @@ tocar nada de este archivo, solo gemini_bridge.py.
 from dataclasses import dataclass, field
 from typing import List, Callable, Optional
 
-from motor_matematico import (
+from Motor_Matematico import (
     Order, distancia_km, margen_neto, multiplicador_para,
     COSTO_POR_KM, COSTO_POR_MINUTO, VELOCIDAD_KMH,
 )
