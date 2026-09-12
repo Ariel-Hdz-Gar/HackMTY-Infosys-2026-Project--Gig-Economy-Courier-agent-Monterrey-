@@ -4,7 +4,10 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
 
-# Cargar variables de entorno desde .env
+# Cargar variables de entorno desde .env (busca en directorio actual, módulo y raíz)
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+load_dotenv(os.path.join(base_dir, ".env"))
+load_dotenv(os.path.join(os.path.dirname(base_dir), ".env"))
 load_dotenv()
 
 logging.basicConfig(
@@ -13,8 +16,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger("db_connection")
 
+# URL por defecto a Tiger Data (Timescale Cloud) si no existe archivo .env local
+DEFAULT_TIGER_URL = "postgres://tsdbadmin:q33z9gicarant7kc@tsfgwbki2d.w84nx9piyi.tsdb.cloud.timescale.com:39869/tsdb?sslmode=require"
+
 # Parámetros de conexión a Tiger Data (PostgreSQL)
-DATABASE_URL = os.getenv("DATABASE_URL") or os.getenv("TIGER_DATA_URL")
+DATABASE_URL = os.getenv("DATABASE_URL") or os.getenv("TIGER_DATA_URL") or DEFAULT_TIGER_URL
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = os.getenv("DB_PORT", "5432")
 DB_NAME = os.getenv("DB_NAME", "courier_db")
