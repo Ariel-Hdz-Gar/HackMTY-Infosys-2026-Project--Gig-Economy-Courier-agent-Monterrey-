@@ -6,6 +6,7 @@ import os
 from dotenv import load_dotenv
 import time
 import sys, os
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Backend", "Backend_Dev2"))
 
 from Motor_Matematico import SmartAgent, BaselineAgent, activar_evento, obtener_ruta_coordenadas
 from Tiger_Data_io import leer_pedidos_pendientes, sincronizar_log_completo
