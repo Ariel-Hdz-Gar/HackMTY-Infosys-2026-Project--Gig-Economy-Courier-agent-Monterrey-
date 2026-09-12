@@ -8,7 +8,7 @@ Si aquí Smart sí tiene ganancia y log, el problema es 100% del frontend.
 Si aquí Smart también sale vacío, el problema es de datos/consulta, no de
 Streamlit.
 """
-from tiger_data_io import leer_pedidos_pendientes, ejecutar_ciclo_completo
+from Tiger_Data_io import leer_pedidos_pendientes, ejecutar_ciclo_completo
 
 pedidos = leer_pedidos_pendientes(limit=50)
 print(f"Pedidos PENDIENTE leídos de Tiger Data: {len(pedidos)}")

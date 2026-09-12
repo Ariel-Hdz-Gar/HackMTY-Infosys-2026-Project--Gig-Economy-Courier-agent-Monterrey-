@@ -46,20 +46,33 @@ except ImportError:
 # ---------------------------------------------------------------------------
 
 def _connection_string() -> str:
-    conn_str = os.environ.get("TIGER_DATA_URL")
+    """
+    Busca la cadena de conexión en este orden (el primero que encuentre gana):
+      1. TIGER_DATA_URL (si algún día se quiere una conexión separada solo
+         para este módulo)
+      2. DATABASE_URL (la variable que YA usa el resto del equipo -- ver
+         Backend_Dev1/db/connection.py y Front-End/main.py -- así todos
+         comparten un solo nombre de variable en el .env, sin duplicar)
+      3. st.secrets, con cualquiera de los dos nombres, para Streamlit
+    Nunca hardcodees la URL en el código ni la subas al repo.
+    """
+    conn_str = os.environ.get("TIGER_DATA_URL") or os.environ.get("DATABASE_URL")
     if conn_str:
         return conn_str
     try:
         import streamlit as st
         if "TIGER_DATA_URL" in st.secrets:
             return st.secrets["TIGER_DATA_URL"]
+        if "DATABASE_URL" in st.secrets:
+            return st.secrets["DATABASE_URL"]
     except Exception:
         pass
     raise RuntimeError(
         "Falta la cadena de conexión a Tiger Data. Configúrala con UNA de estas opciones:\n"
-        "  1) export TIGER_DATA_URL='postgresql://usuario:pass@host:5432/db?sslmode=require'\n"
-        "  2) Crea un archivo .env junto al código con: TIGER_DATA_URL=postgresql://...\n"
-        "  3) Si usas Streamlit, crea .streamlit/secrets.toml con: TIGER_DATA_URL = \"postgresql://...\""
+        "  1) export DATABASE_URL='postgresql://usuario:pass@host:5432/db?sslmode=require'\n"
+        "     (la misma variable que ya usa db/connection.py y main.py)\n"
+        "  2) Crea un archivo .env con: DATABASE_URL=postgresql://...\n"
+        "  3) Si usas Streamlit, crea .streamlit/secrets.toml con: DATABASE_URL = \"postgresql://...\""
     )
 
 
