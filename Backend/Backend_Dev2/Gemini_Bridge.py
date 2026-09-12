@@ -61,7 +61,7 @@ def call_gemini(prompt: str) -> str:
                     "argumento_agente": ""
                 }
             },
-            timeout=10,
+            timeout=30,
         )
         response.raise_for_status()
         return response.json()["explicacion_gemini"]
