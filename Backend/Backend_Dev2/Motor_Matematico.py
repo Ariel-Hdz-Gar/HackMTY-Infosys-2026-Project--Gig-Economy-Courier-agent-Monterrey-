@@ -141,14 +141,30 @@ class SmartAgent:
         self.tiempo_disponible_s = tiempo_turno_s
         self.radio_batching_km = radio_batching_km
 
-    # ---- Etapa 1: selección por margen (CP-SAT) ----
+    # ---- Etapa 1: selección por margen y factibilidad de tiempo (CP-SAT) ----
     def seleccionar_ordenes(self, ordenes: List[Order]) -> List[Order]:
         evaluadas = []
         for o in ordenes:
-            mult = multiplicador_para(o)
-            margen = margen_neto(o, self.state.posicion, mult)
             tiempo_est_s = (distancia_km(self.state.posicion, o.origen)
                              + distancia_km(o.origen, o.destino)) / VELOCIDAD_KMH * 3600
+
+            # tiempo que le queda al pedido desde que se creó hasta su límite
+            transcurrido_s = time.time() - o.timestamp_creacion
+            tiempo_restante_s = o.tiempo_limite_s - transcurrido_s
+
+            if tiempo_est_s > tiempo_restante_s:
+                # ya no es físicamente alcanzable a tiempo: se descarta antes
+                # de evaluar margen, ni el mejor precio salva un pedido tarde
+                self.state.log.append({
+                    "orden_id": o.order_id, "accion": "rechazado",
+                    "razon": "tiempo_limite_excedido",
+                    "tiempo_necesario_s": round(tiempo_est_s, 1),
+                    "tiempo_restante_s": round(tiempo_restante_s, 1),
+                })
+                continue
+
+            mult = multiplicador_para(o)
+            margen = margen_neto(o, self.state.posicion, mult)
             if margen > 0:
                 evaluadas.append((o, margen, tiempo_est_s))
             else:
