@@ -1,7 +1,8 @@
 """
 CourierAI - Conexión a Tiger Data (Dev 2)
 --------------------------------------------
-Ajustado al esquema REAL creado por Dev 1 (ver SCRIPT_SQL.txt):
+Ajustado al esquema REAL creado por Dev 1 (ver SCRIPT_SQL.txt), con los
+ajustes que él confirmó después:
 
   - orders            -> demanda de pedidos (columnas en inglés + status en
                           mayúsculas: 'PENDIENTE', 'ACEPTADA', 'RECHAZADA',
@@ -9,9 +10,15 @@ Ajustado al esquema REAL creado por Dev 1 (ver SCRIPT_SQL.txt):
                           assigned_agent: 'BASELINE' | 'SMART')
   - v_orders          -> vista de compatibilidad con alias en español que
                           usamos para LEER (origen_lat, tarifa_base, etc.)
-  - decisiones        -> log de decisiones del motor (lo que ya usábamos)
-  - transactions      -> ledger financiero real (gross_fare, operational_cost,
-                          net_profit) — separado del log de decisiones
+  - decisiones        -> log de decisiones del motor. order_id ahora es
+                          INTEGER con FK real a orders.id (ya no TEXT), así
+                          que se puede hacer JOIN directo sin castear.
+  - transactions      -> ledger financiero real. NO lo escribimos nosotros:
+                          Dev 1 tiene su propio simulator.py que detecta
+                          cuando una orden pasa a 'ACEPTADA', simula el
+                          tiempo de viaje, la marca 'COMPLETADA' e inserta
+                          la transacción. Nuestro trabajo termina en poner
+                          el status en 'ACEPTADA' o 'RECHAZADA'.
 
 Tiger Data está construida sobre PostgreSQL, así que la conexión sigue
 siendo psycopg2 estándar; lo único que cambió es el SQL de las queries.
@@ -25,7 +32,7 @@ from typing import List, Dict, Optional
 import psycopg2
 import psycopg2.extras
 
-from .Motor_Matematico import Order
+from Motor_Matematico import Order
 
 try:
     from dotenv import load_dotenv
@@ -114,7 +121,8 @@ _ACCION_A_STATUS = {
 
 def registrar_decision(agente: str, entrada_log: Dict):
     """Inserta en 'decisiones' (log de razonamiento). agente debe ser
-    'BASELINE' o 'SMART' para que quede consistente con el resto del esquema."""
+    'BASELINE' o 'SMART' para que quede consistente con el resto del esquema.
+    order_id ahora es INTEGER con FK real a orders.id (ajuste de Dev 1)."""
     order_id = entrada_log.get("orden_id") or entrada_log.get("order_id")
     accion = entrada_log.get("accion")
     razon = entrada_log.get("razon")
@@ -129,7 +137,7 @@ def registrar_decision(agente: str, entrada_log: Dict):
     """
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute(query, (str(order_id) if order_id else None,
+            cur.execute(query, (int(order_id) if order_id else None,
                                  agente, accion, razon, margen, json.dumps(metadata)))
 
 
@@ -151,20 +159,11 @@ def actualizar_estado_orden(order_id: str, accion: str, agente: str):
             cur.execute(query, (nuevo_status, agente, int(order_id)))
 
 
-def registrar_transaccion(order_id: str, agente: str, gross_fare: float,
-                            operational_cost: float, net_profit: float):
-    """Escribe en el ledger financiero real (tabla transactions). Se usa
-    cuando una orden se COMPLETA (no solo se acepta), que es cuando de
-    verdad se realiza la ganancia."""
-    query = """
-        INSERT INTO transactions (order_id, agent_type, gross_fare,
-                                    operational_cost, net_profit)
-        VALUES (%s, %s, %s, %s, %s);
-    """
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(query, (int(order_id), agente, gross_fare,
-                                 operational_cost, net_profit))
+## NOTA: no hay función registrar_transaccion() aquí a propósito.
+## Dev 1 tiene su propio simulator.py que escucha cuando una orden pasa a
+## 'ACEPTADA', simula el viaje, la marca 'COMPLETADA' e inserta en
+## 'transactions'. Si nosotros también insertáramos ahí, se duplicaría la
+## ganancia. Nuestro alcance termina en actualizar_estado_orden().
 
 
 def sincronizar_log_completo(agente_state, agente_nombre: str):

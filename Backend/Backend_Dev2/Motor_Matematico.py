@@ -8,19 +8,28 @@ Contiene:
     neto + batching por cercanía con TSP corto)
   - Hook de evento disruptor (bloqueo vial / lluvia intensa)
 
-Este archivo es standalone y corre con datos mock. Cuando Dev 1 tenga el
-grafo de OSMnx listo, reemplaza `distancia_km()` por una consulta real
-sobre el grafo (networkx.shortest_path_length).
+INTEGRACIÓN CON DEV 1 (environment.py):
+  distancia_km() intenta usar el grafo vial real de Monterrey (OSMnx +
+  networkx) que expone Dev 1 en Backend_Dev1/environment.py. Si ese módulo
+  no está disponible (ej. corriendo este archivo solo, sin el resto del
+  repo, o el .graphml aún no se descargó), cae automáticamente a una
+  aproximación de línea recta (haversine) para que el motor NUNCA truene
+  por falta del grafo — solo pierde precisión, no funcionalidad.
 """
 
 import math
 import time
 import uuid
+import sys
+import os
+import logging
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional
 
 from ortools.sat.python import cp_model
 from ortools.constraint_solver import pywrapcp, routing_enums_pb2
+
+logger = logging.getLogger("motor_matematico")
 
 
 # ---------------------------------------------------------------------------
@@ -46,13 +55,12 @@ class AgentState:
 
 
 # ---------------------------------------------------------------------------
-# 2. UTILIDADES DE DISTANCIA (placeholder -> reemplazar con OSMnx/networkx)
+# 2. UTILIDADES DE DISTANCIA
+#    Intenta usar el grafo real de Dev 1; si no está disponible, usa
+#    haversine (línea recta) como respaldo silencioso.
 # ---------------------------------------------------------------------------
 
-def distancia_km(p1: tuple, p2: tuple) -> float:
-    """Haversine como placeholder. Sustituir por distancia real de calles
-    (networkx.shortest_path_length(grafo, nodo1, nodo2, weight='length'))
-    en cuanto Dev 1 exponga el grafo de OSMnx."""
+def _haversine_km(p1: tuple, p2: tuple) -> float:
     lat1, lon1 = p1
     lat2, lon2 = p2
     R = 6371.0
@@ -62,6 +70,72 @@ def distancia_km(p1: tuple, p2: tuple) -> float:
          + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2))
          * math.sin(dlon / 2) ** 2)
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+# --- intento de importar el grafo real de Dev 1 ---
+_GRAFO_DISPONIBLE = False
+_GRAFO = None
+_NODO_CACHE: Dict[tuple, int] = {}     # (lat_redondeada, lon_redondeada) -> node_id
+_RUTA_CACHE: Dict[tuple, float] = {}   # (nodo1, nodo2) -> km
+
+try:
+    # Ajusta esta ruta si la estructura final de carpetas cambia.
+    _ruta_dev1 = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                "..", "Backend_Dev1")
+    if os.path.isdir(_ruta_dev1) and _ruta_dev1 not in sys.path:
+        sys.path.append(_ruta_dev1)
+
+    from Backend_Dev1.environment import load_or_create_graph, get_nearest_node, calculate_route_distance
+
+    _GRAFO_DISPONIBLE = True
+except Exception as e:
+    logger.warning(
+        f"No se pudo importar environment.py de Dev 1 ({e}). "
+        f"distancia_km() usará línea recta (haversine) como respaldo."
+    )
+
+
+def _get_grafo():
+    global _GRAFO
+    if _GRAFO is None:
+        logger.info("Cargando grafo vial de Monterrey (puede tardar la primera vez)...")
+        _GRAFO = load_or_create_graph()
+    return _GRAFO
+
+
+def _nodo_cercano(lat: float, lon: float) -> int:
+    clave = (round(lat, 5), round(lon, 5))
+    if clave not in _NODO_CACHE:
+        _NODO_CACHE[clave] = get_nearest_node(_get_grafo(), lat, lon)
+    return _NODO_CACHE[clave]
+
+
+def distancia_km(p1: tuple, p2: tuple) -> float:
+    """Distancia entre dos coordenadas (lat, lon). Usa el grafo real de
+    calles de Monterrey si Dev 1 lo dejó disponible; si no, aproxima con
+    línea recta. Cachea resultados por par de nodos para no recalcular
+    rutas repetidas (el batching y el TSP llaman esta función muchas veces)."""
+    if _GRAFO_DISPONIBLE:
+        try:
+            n1 = _nodo_cercano(*p1)
+            n2 = _nodo_cercano(*p2)
+            if n1 == n2:
+                return 0.0
+
+            clave_ruta = (n1, n2) if n1 < n2 else (n2, n1)
+            if clave_ruta not in _RUTA_CACHE:
+                metros = calculate_route_distance(_get_grafo(), n1, n2)
+                _RUTA_CACHE[clave_ruta] = (metros / 1000.0) if metros != float("inf") else None
+
+            km = _RUTA_CACHE[clave_ruta]
+            if km is not None:
+                return km
+            # sin ruta conectada en el grafo -> cae a haversine para no
+            # inflar artificialmente el margen con 'infinito'
+        except Exception as e:
+            logger.warning(f"Fallo consultando el grafo real ({e}); usando haversine.")
+
+    return _haversine_km(p1, p2)
 
 
 # ---------------------------------------------------------------------------
