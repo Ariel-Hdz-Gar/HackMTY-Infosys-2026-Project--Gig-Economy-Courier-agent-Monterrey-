@@ -141,6 +141,38 @@ def distancia_km(p1: tuple, p2: tuple) -> float:
     return _haversine_km(p1, p2)
 
 
+def obtener_ruta_coordenadas(origen: tuple, destino: tuple) -> list:
+    """Para el FRONTEND (Dev 4): regresa la lista de puntos [lat, lon] que
+    sigue la ruta REAL sobre las calles de Monterrey entre origen y destino
+    -- no solo los 2 extremos. Úsala en vez de armar 'ruta_smart' manualmente
+    con [[origen], [destino]], porque eso dibuja una línea recta en el mapa
+    en vez de seguir las calles.
+
+    Ejemplo en main.py:
+        from motor_matematico import obtener_ruta_coordenadas
+        ruta_smart = obtener_ruta_coordenadas(
+            (orden_actual[2], orden_actual[3]),   # origen
+            (orden_actual[4], orden_actual[5]),   # destino
+        )
+        folium.PolyLine(locations=ruta_smart, ...).add_to(mapa_mty)
+
+    Si el grafo real no está disponible, cae a una línea recta de 2 puntos
+    (el mismo comportamiento que había antes) en vez de tronar.
+    """
+    if _GRAFO_DISPONIBLE:
+        try:
+            import networkx as nx
+            grafo = _get_grafo()
+            n1 = _nodo_cercano(*origen)
+            n2 = _nodo_cercano(*destino)
+            camino_nodos = nx.shortest_path(grafo, n1, n2, weight="length")
+            return [[grafo.nodes[n]["y"], grafo.nodes[n]["x"]] for n in camino_nodos]
+        except Exception as e:
+            logger.warning(f"No se pudo calcular la ruta real ({e}); usando línea recta.")
+
+    return [list(origen), list(destino)]
+
+
 # ---------------------------------------------------------------------------
 # 3. PARÁMETROS DE COSTO (calibrar en Horas 31-32)
 # ---------------------------------------------------------------------------
