@@ -6,28 +6,6 @@ import os
 from dotenv import load_dotenv
 import time
 import sys, os
-import os
-from google import genai
-from dotenv import load_dotenv
-
-load_dotenv()
-
-def call_gemini(prompt: str) -> str:
-    """Envía un prompt a Gemini y devuelve la respuesta en texto."""
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        return "Error: GEMINI_API_KEY no encontrada en las variables de entorno."
-
-    try:
-        client = genai.Client(api_key=api_key)
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-        )
-        return response.text
-    except Exception as e:
-        return f"Error en llamada a Gemini: {e}"
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Backend", "Backend_Dev2"))
 
 from Motor_Matematico import SmartAgent, BaselineAgent, activar_evento, obtener_ruta_coordenadas
 from Tiger_Data_io import leer_pedidos_pendientes, sincronizar_log_completo
