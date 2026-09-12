@@ -30,12 +30,12 @@ DB_SSLMODE = os.getenv("DB_SSLMODE", "prefer")
 
 
 def get_db_connection():
+    url = os.getenv("DATABASE_URL") or os.getenv("TIGER_DATA_URL") or DEFAULT_TIGER_URL
     try:
-        # Usa DATABASE_URL o TIGER_DATA_URL según lo tengas en tu archivo .env
-        conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
+        conn = psycopg2.connect(url)
         return conn
     except Exception as e:
-        print(f"Error conectando a Tiger Data: {e}")
+        logger.error(f"Error conectando a Tiger Data: {e}")
         raise e
 
 
