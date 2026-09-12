@@ -34,49 +34,36 @@ conexion = inicializar_conexion()
 def obtener_datos_tiger():
     try:
         with conexion.cursor() as cursor:
-            # Ganancias -- transactions.net_profit / agent_type ('BASELINE' | 'SMART')
+            # Ganancias
             cursor.execute("SELECT SUM(net_profit) FROM transactions WHERE agent_type = 'SMART'")
             ganancia_smart = cursor.fetchone()[0] or 0.0
 
             cursor.execute("SELECT SUM(net_profit) FROM transactions WHERE agent_type = 'BASELINE'")
             ganancia_baseline = cursor.fetchone()[0] or 0.0
 
-            # Rutas -- driver_logs.current_lat / current_lon / agent_type
+            # Orden activa, Evento y Coordenadas
             cursor.execute(
-                "SELECT current_lat, current_lon FROM driver_logs "
-                "WHERE agent_type = 'SMART' ORDER BY id ASC"
-            )
-            ruta_smart = cursor.fetchall()
-
-            cursor.execute(
-                "SELECT current_lat, current_lon FROM driver_logs "
-                "WHERE agent_type = 'BASELINE' ORDER BY id ASC"
-            )
-            ruta_baseline = cursor.fetchall()
-
-            # Orden activa -- orders.estado_ciudad NO EXISTE en el esquema real.
-            # Por ahora solo traemos el id más reciente pendiente; 'evento_actual'
-            # queda fijo en 'normal' hasta que se defina de dónde sale ese dato
-            # (columna nueva en 'orders', o el estado del evento disruptor que
-            # vive del lado del motor de Dev 2 / activar_evento()).
-            cursor.execute(
-                "SELECT id FROM orders WHERE status = 'PENDIENTE' "
-                "ORDER BY id DESC LIMIT 1"
+                "SELECT id, event_type, origin_lat, origin_lon, dest_lat, dest_lon "
+                "FROM orders WHERE status = 'PENDIENTE' ORDER BY id DESC LIMIT 1"
             )
             orden_actual = cursor.fetchone()
 
-            orden_id = orden_actual[0] if orden_actual else 0
-            evento_actual = "normal"  # placeholder hasta definir la fuente real
-
-        if not ruta_smart:
-            ruta_smart = [[25.6714, -100.3168]]
-        if not ruta_baseline:
-            ruta_baseline = [[25.6714, -100.3168]]
+            if orden_actual:
+                orden_id = orden_actual[0]
+                evento_actual = orden_actual[1] or "normal"
+                # Usamos el origen y destino de la orden como ruta temporal
+                ruta_smart = [[orden_actual[2], orden_actual[3]], [orden_actual[4], orden_actual[5]]]
+                ruta_baseline = ruta_smart 
+            else:
+                orden_id = 0
+                evento_actual = "normal"
+                ruta_smart = [[25.6714, -100.3168]]
+                ruta_baseline = [[25.6714, -100.3168]]
 
         return ruta_smart, ruta_baseline, ganancia_smart, ganancia_baseline, evento_actual, orden_id
 
     except Exception as e:
-        conexion.rollback()  # <- clave: libera la conexión cacheada para la siguiente consulta
+        conexion.rollback() 
         st.error(f"Error en consulta: {e}")
         return [[25.6714, -100.3168]], [[25.6714, -100.3168]], 0.0, 0.0, "normal", 0
     
@@ -103,7 +90,12 @@ with col_roja:
 
 # --- AREA AZUL (MAPA) ---
 with col_azul:
-    mapa_mty = folium.Map(location=ruta_smart[-1], zoom_start=15, tiles="OpenStreetMap")
+    mapa_mty = folium.Map(
+        location=ruta_smart[-1], 
+        zoom_start=14, 
+        tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+        attr="Esri"
+    )
     
     # Ruta y marcador Inteligente
     folium.PolyLine(locations=ruta_smart, color="#00FF80", weight=5, opacity=0.9).add_to(mapa_mty)
