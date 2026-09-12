@@ -5,14 +5,11 @@ import psycopg2
 import os
 from dotenv import load_dotenv
 import time
-import sys
-from pathlib import Path
+import sys, os
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Backend", "Backend_Dev2"))
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-
-from Backend.Backend_Dev2.Motor_Matematico import (SmartAgent,BaselineAgent,activar_evento)
-from Backend.Backend_Dev2.Tiger_Data_io import (leer_pedidos_pendientes,sincronizar_log_completo)
+from Motor_Matematico import SmartAgent, BaselineAgent, activar_evento
+from Tiger_Data_io import leer_pedidos_pendientes, sincronizar_log_completo
 
 # ==========================================
 # 1. CONFIGURACION DE PAGINA
@@ -37,36 +34,52 @@ conexion = inicializar_conexion()
 def obtener_datos_tiger():
     try:
         with conexion.cursor() as cursor:
-            # Extraer ganancias
-            cursor.execute("SELECT SUM(monto) FROM transactions WHERE agente = 'smart'")
+            # Ganancias -- transactions.net_profit / agent_type ('BASELINE' | 'SMART')
+            cursor.execute("SELECT SUM(net_profit) FROM transactions WHERE agent_type = 'SMART'")
             ganancia_smart = cursor.fetchone()[0] or 0.0
-            
-            cursor.execute("SELECT SUM(monto) FROM transactions WHERE agente = 'baseline'")
+
+            cursor.execute("SELECT SUM(net_profit) FROM transactions WHERE agent_type = 'BASELINE'")
             ganancia_baseline = cursor.fetchone()[0] or 0.0
 
-            # Extraer rutas
-            cursor.execute("SELECT latitud, longitud FROM driver_logs WHERE agente = 'smart' ORDER BY id ASC")
-            ruta_smart = cursor.fetchall() 
-            
-            cursor.execute("SELECT latitud, longitud FROM driver_logs WHERE agente = 'baseline' ORDER BY id ASC")
-            ruta_baseline = cursor.fetchall()
-            
-            # Extraer orden activa
-            cursor.execute("SELECT id, estado_ciudad FROM orders WHERE status = 'PENDIENTE' ORDER BY id DESC LIMIT 1")
-            orden_actual = cursor.fetchone()
-            
-            orden_id = orden_actual[0] if orden_actual else 0
-            evento_actual = orden_actual[1] if orden_actual else "normal"
+            # Rutas -- driver_logs.current_lat / current_lon / agent_type
+            cursor.execute(
+                "SELECT current_lat, current_lon FROM driver_logs "
+                "WHERE agent_type = 'SMART' ORDER BY id ASC"
+            )
+            ruta_smart = cursor.fetchall()
 
-        # Proteccion: Si no hay rutas aun, poner coordenadas por defecto de Monterrey
-        if not ruta_smart: ruta_smart = [[25.6714, -100.3168]]
-        if not ruta_baseline: ruta_baseline = [[25.6714, -100.3168]]
+            cursor.execute(
+                "SELECT current_lat, current_lon FROM driver_logs "
+                "WHERE agent_type = 'BASELINE' ORDER BY id ASC"
+            )
+            ruta_baseline = cursor.fetchall()
+
+            # Orden activa -- orders.estado_ciudad NO EXISTE en el esquema real.
+            # Por ahora solo traemos el id más reciente pendiente; 'evento_actual'
+            # queda fijo en 'normal' hasta que se defina de dónde sale ese dato
+            # (columna nueva en 'orders', o el estado del evento disruptor que
+            # vive del lado del motor de Dev 2 / activar_evento()).
+            cursor.execute(
+                "SELECT id FROM orders WHERE status = 'PENDIENTE' "
+                "ORDER BY id DESC LIMIT 1"
+            )
+            orden_actual = cursor.fetchone()
+
+            orden_id = orden_actual[0] if orden_actual else 0
+            evento_actual = "normal"  # placeholder hasta definir la fuente real
+
+        if not ruta_smart:
+            ruta_smart = [[25.6714, -100.3168]]
+        if not ruta_baseline:
+            ruta_baseline = [[25.6714, -100.3168]]
 
         return ruta_smart, ruta_baseline, ganancia_smart, ganancia_baseline, evento_actual, orden_id
+
     except Exception as e:
+        conexion.rollback()  # <- clave: libera la conexión cacheada para la siguiente consulta
         st.error(f"Error en consulta: {e}")
         return [[25.6714, -100.3168]], [[25.6714, -100.3168]], 0.0, 0.0, "normal", 0
-
+    
 ruta_smart, ruta_baseline, ganancia_smart, ganancia_baseline, evento_actual, orden_id = obtener_datos_tiger()
 razonamiento_smart = "Esperando decision de Gemini..."
 

@@ -141,6 +141,27 @@ def registrar_decision(agente: str, entrada_log: Dict):
                                  agente, accion, razon, margen, json.dumps(metadata)))
 
 
+def registrar_batching(agente: str, entrada_log: Dict):
+    """Las entradas de 'batching' del log NO tienen un solo order_id (son un
+    resumen de varios pedidos agrupados: {'accion':'batching','ordenes':[...],
+    'ahorro_km':...}). Como decisiones.order_id es NOT NULL con FK, insertar
+    esa entrada tal cual truena. En vez de eso, escribimos UNA fila por cada
+    pedido del grupo, todas con el mismo ahorro_km en metadata, para no
+    perder la trazabilidad y no violar la restricción de la tabla."""
+    ordenes_del_grupo = entrada_log.get("ordenes", [])
+    metadata = {k: v for k, v in entrada_log.items() if k != "ordenes"}
+
+    query = """
+        INSERT INTO decisiones (order_id, agente, accion, razon, margen_neto, metadata)
+        VALUES (%s, %s, %s, %s, %s, %s);
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            for oid in ordenes_del_grupo:
+                cur.execute(query, (int(oid), agente, "batching",
+                                     "agrupado_por_cercania", None, json.dumps(metadata)))
+
+
 def actualizar_estado_orden(order_id: str, accion: str, agente: str):
     """accion: 'aceptado' | 'rechazado' -> mapea a status real de la tabla orders.
     Escribimos sobre la tabla real (no la vista) porque ahí viven status y
@@ -169,9 +190,14 @@ def actualizar_estado_orden(order_id: str, accion: str, agente: str):
 def sincronizar_log_completo(agente_state, agente_nombre: str):
     """agente_nombre debe ser 'BASELINE' o 'SMART'. Vuelca el log completo
     del AgentState: escribe el razonamiento en 'decisiones' y actualiza el
-    status en 'orders'. El registro en 'transactions' se hace aparte, cuando
-    la entrega se marca como COMPLETADA (ver registrar_transaccion)."""
+    status en 'orders'. El registro en 'transactions' NO se hace aquí:
+    lo dispara el simulator.py de Dev 1 cuando detecta el cambio a 'ACEPTADA'."""
     for entrada in agente_state.log:
+        if entrada.get("accion") == "batching":
+            # entrada de resumen sin order_id único -> ruta especial
+            registrar_batching(agente_nombre, entrada)
+            continue
+
         registrar_decision(agente_nombre, entrada)
         order_id = entrada.get("orden_id")
         accion = entrada.get("accion")

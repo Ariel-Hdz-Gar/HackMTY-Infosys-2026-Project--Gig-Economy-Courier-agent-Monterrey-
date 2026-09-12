@@ -85,7 +85,7 @@ try:
     if os.path.isdir(_ruta_dev1) and _ruta_dev1 not in sys.path:
         sys.path.append(_ruta_dev1)
 
-    from Backend_Dev1.environment import load_or_create_graph, get_nearest_node, calculate_route_distance
+    from environment import load_or_create_graph, get_nearest_node, calculate_route_distance
 
     _GRAFO_DISPONIBLE = True
 except Exception as e:
