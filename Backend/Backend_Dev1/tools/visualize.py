@@ -8,20 +8,19 @@ import networkx as nx
 if sys.stdout.encoding != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
 
-# Asegurar que el directorio raíz del proyecto esté en el path de importación
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, backend_dir)
 
 from environment import load_or_create_graph, get_random_nodes, get_node_coords, calculate_route_distance
 
 def create_interactive_map(output_file: str = "mapa_monterrey.html", num_orders: int = 5):
-    print("📍 Cargando grafo vial de Monterrey...")
-    graph_path = os.path.join(os.path.dirname(__file__), "..", "monterrey_drive.graphml")
+    print("📍 Cargando grafo vial de Monterrey desde backend...")
+    graph_path = os.path.join(backend_dir, "monterrey_drive.graphml")
     G = load_or_create_graph(filepath=graph_path)
     
     # Coordenadas centrales de Monterrey (Macroplaza / Centro)
     mty_center = [25.6714, -100.3095]
     
-    # Crear mapa interactivo Folium usando Esri World Street Map (sin bloqueos 403)
     m = folium.Map(
         location=mty_center,
         zoom_start=12,
@@ -29,7 +28,6 @@ def create_interactive_map(output_file: str = "mapa_monterrey.html", num_orders:
         attr="Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, Esri Japan, METI, Esri China (Hong Kong), Esri (Thailand), TomTom"
     )
     
-    # Capa alternativa limpia Carto Voyager
     folium.TileLayer(
         tiles="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
         attr="&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors &copy; <a href='https://carto.com/attributions'>CARTO</a>",
@@ -37,9 +35,7 @@ def create_interactive_map(output_file: str = "mapa_monterrey.html", num_orders:
         subdomains="abcd"
     ).add_to(m)
     
-    # Paleta de colores para diferentes rutas
     colors = ['#FF5722', '#2196F3', '#9C27B0', '#E91E63', '#009688', '#FF9800', '#3F51B5']
-    
     orders_data = []
     
     print(f"🚴 Generando {num_orders} órdenes simuladas con ruteo real en calles...")
@@ -149,7 +145,7 @@ def create_interactive_map(output_file: str = "mapa_monterrey.html", num_orders:
     m.get_root().html.add_child(folium.Element(summary_html))
     folium.LayerControl().add_to(m)
     
-    out_path = os.path.join(os.path.dirname(__file__), "..", output_file)
+    out_path = os.path.join(os.path.dirname(__file__), output_file)
     m.save(out_path)
     abs_path = os.path.abspath(out_path)
     print(f"MAPA_GENERADO:{abs_path}")
