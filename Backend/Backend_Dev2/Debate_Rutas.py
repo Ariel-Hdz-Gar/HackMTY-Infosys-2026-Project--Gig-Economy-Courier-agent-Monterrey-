@@ -4,15 +4,16 @@ CourierAI - Generación de rutas candidatas + Debate multi-IA (Dev 2 + Dev 3)
 Dev 2 (tú) es dueño de: generar_opciones_ruta() -> produce k RouteOption con
 métricas cuantificadas y objetivas (distancia, tiempo, riesgo, ganancia).
 
-Dev 3 es dueño de: la función call_gemini() (implementación real de la API)
-y de afinar los prompts. Aquí dejo el orquestador ya armado para que solo
-conecte su cliente de Gemini en el punto marcado.
+Dev 3 es dueño de: la función call_gemini() en gemini_bridge.py (ese es el
+ÚNICO lugar donde se implementa la llamada real a la API; este archivo solo
+la importa). Aquí dejo el orquestador ya armado para que Dev 3 no tenga que
+tocar nada de este archivo, solo gemini_bridge.py.
 """
 
 from dataclasses import dataclass, field
 from typing import List, Callable, Optional
 
-from Backend.Backend_Dev2.Motor_Matematico import (
+from motor_matematico import (
     Order, distancia_km, margen_neto, multiplicador_para,
     COSTO_POR_KM, COSTO_POR_MINUTO, VELOCIDAD_KMH,
 )
@@ -97,51 +98,12 @@ def generar_opciones_ruta(posicion_agente: tuple, pedidos: List[Order],
 
 
 # ---------------------------------------------------------------------------
-# 2. DEBATE MULTI-IA (Dev 3 conecta Gemini aquí)
+# 2. DEBATE MULTI-IA (usa el puente compartido de gemini_bridge.py)
 # ---------------------------------------------------------------------------
 
-# >>> Dev 3: reemplaza esta función por la llamada real a la API de Gemini <<<
-def call_gemini(prompt: str) -> str:
-    """STUB. Sustituir por la llamada real, ej:
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        return model.generate_content(prompt).text
-    """
-    return f"[Respuesta simulada de Gemini para prompt de {len(prompt)} caracteres]"
+from gemini_bridge import call_gemini, prompt_defensor_ruta as prompt_defensor, \
+    prompt_mediador_rutas as prompt_mediador
 
-
-def prompt_defensor(opcion: RouteOption, otras: List[RouteOption]) -> str:
-    comparacion = "\n".join(
-        f"- {o.id}: distancia={o.distancia_km}km, tiempo={o.tiempo_min}min, "
-        f"riesgo={o.riesgo}, ganancia=${o.ganancia_neta}"
-        for o in otras
-    )
-    return (
-        f"Eres un agente repartidor defendiendo la ruta '{opcion.id}'.\n"
-        f"Tus métricas: distancia={opcion.distancia_km}km, "
-        f"tiempo={opcion.tiempo_min}min, riesgo={opcion.riesgo}, "
-        f"ganancia=${opcion.ganancia_neta}.\n"
-        f"Rutas alternativas:\n{comparacion}\n"
-        f"En máximo 3 líneas, argumenta por qué tu ruta es la mejor opción "
-        f"para este turno."
-    )
-
-
-def prompt_mediador(opciones: List[RouteOption]) -> str:
-    resumen = "\n\n".join(
-        f"Ruta {o.id} ({o.descripcion}):\n"
-        f"  Métricas: distancia={o.distancia_km}km, tiempo={o.tiempo_min}min, "
-        f"riesgo={o.riesgo}, ganancia=${o.ganancia_neta}\n"
-        f"  Argumento: {o.argumento}"
-        for o in opciones
-    )
-    return (
-        f"Eres el mediador imparcial del sistema. Estas son las rutas "
-        f"propuestas, sus métricas objetivas y el argumento de cada agente:\n\n"
-        f"{resumen}\n\n"
-        f"Decide cuál ruta es la mejor opción para el repartidor. Responde "
-        f"con el id de la ruta ganadora y una justificación breve (máx 3 "
-        f"líneas) basada en los datos, no solo en los argumentos."
-    )
 
 
 def debatir_rutas(opciones: List[RouteOption],

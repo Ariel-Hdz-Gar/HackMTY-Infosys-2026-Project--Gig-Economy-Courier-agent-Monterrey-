@@ -8,7 +8,7 @@ Corre con: python3 test_debate.py
 """
 import uuid
 from Backend.Backend_Dev2.Motor_Matematico import Order
-from Backend.Backend_Dev2.Rutas import generar_opciones_ruta, debatir_rutas
+from Backend.Backend_Dev2.Debate_Rutas import generar_opciones_ruta, debatir_rutas
 
 
 def generador_texto_prueba(prompt: str) -> str:

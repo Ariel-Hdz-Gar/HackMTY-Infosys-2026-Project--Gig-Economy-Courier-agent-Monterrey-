@@ -1,0 +1,154 @@
+"""
+CourierAI - Puente con Gemini (Dev 2 <-> Dev 3)
+---------------------------------------------------
+Este es el ÚNICO lugar donde se llama a la API de Gemini. Tanto el debate
+de rutas (debate_rutas.py) como la explicación del evento disruptor
+(el flujo principal que pide el documento) pasan por aquí, para que
+Dev 3 solo tenga que implementar UNA función real, no varias.
+
+>>> DEV 3: tu trabajo es reemplazar SOLO call_gemini() por la llamada real
+>>> a la API. Todo lo demás (los prompts, el armado del contexto) ya está
+>>> hecho del lado de Dev 2 y no debería necesitar cambios.
+"""
+
+import logging
+from typing import Callable, Dict, List
+
+logger = logging.getLogger("gemini_bridge")
+
+
+# ---------------------------------------------------------------------------
+# 1. PUNTO ÚNICO DE CONTACTO CON LA API (Dev 3 implementa esto)
+# ---------------------------------------------------------------------------
+
+def call_gemini(prompt: str) -> str:
+    """STUB. Sustituir por la llamada real, ej:
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        return model.generate_content(prompt).text
+    Mientras no esté implementada, el resto del sistema sigue funcionando
+    con esta respuesta simulada (no bloquea a Dev 2 ni a la demo)."""
+    logger.info(f"[STUB] call_gemini() recibió un prompt de {len(prompt)} caracteres")
+    return f"[Respuesta simulada de Gemini para prompt de {len(prompt)} caracteres]"
+
+
+# ---------------------------------------------------------------------------
+# 2. DEBATE DE RUTAS (usado por debate_rutas.py)
+# ---------------------------------------------------------------------------
+
+def prompt_defensor_ruta(opcion, otras: List) -> str:
+    comparacion = "\n".join(
+        f"- {o.id}: distancia={o.distancia_km}km, tiempo={o.tiempo_min}min, "
+        f"riesgo={o.riesgo}, ganancia=${o.ganancia_neta}"
+        for o in otras
+    )
+    return (
+        f"Eres un agente repartidor defendiendo la ruta '{opcion.id}'.\n"
+        f"Tus métricas: distancia={opcion.distancia_km}km, "
+        f"tiempo={opcion.tiempo_min}min, riesgo={opcion.riesgo}, "
+        f"ganancia=${opcion.ganancia_neta}.\n"
+        f"Rutas alternativas:\n{comparacion}\n"
+        f"En máximo 3 líneas, argumenta por qué tu ruta es la mejor opción "
+        f"para este turno."
+    )
+
+
+def prompt_mediador_rutas(opciones: List) -> str:
+    resumen = "\n\n".join(
+        f"Ruta {o.id} ({o.descripcion}):\n"
+        f"  Métricas: distancia={o.distancia_km}km, tiempo={o.tiempo_min}min, "
+        f"riesgo={o.riesgo}, ganancia=${o.ganancia_neta}\n"
+        f"  Argumento: {o.argumento}"
+        for o in opciones
+    )
+    return (
+        f"Eres el mediador imparcial del sistema. Estas son las rutas "
+        f"propuestas, sus métricas objetivas y el argumento de cada agente:\n\n"
+        f"{resumen}\n\n"
+        f"Decide cuál ruta es la mejor opción para el repartidor. Responde "
+        f"con el id de la ruta ganadora y una justificación breve (máx 3 "
+        f"líneas) basada en los datos, no solo en los argumentos."
+    )
+
+
+# ---------------------------------------------------------------------------
+# 3. EXPLICACIÓN DEL EVENTO DISRUPTOR (flujo principal del documento)
+#    "El Agente Inteligente recalcula su ruta y envía el nuevo contexto
+#     geográfico a la API de Gemini." -> esto es exactamente eso.
+# ---------------------------------------------------------------------------
+
+def resumen_agente(agente_state) -> Dict:
+    """Convierte un AgentState de motor_matematico.py en un resumen chico
+    para no mandarle a Gemini el log completo, solo lo relevante."""
+    aceptados = [e for e in agente_state.log if e.get("accion") == "aceptado"]
+    rechazados = [e for e in agente_state.log if e.get("accion") == "rechazado"]
+    return {
+        "ganancia": round(agente_state.ganancia_total, 2),
+        "pedidos_aceptados": len(aceptados),
+        "pedidos_rechazados": len(rechazados),
+        "razones_rechazo": list({e.get("razon") for e in rechazados if e.get("razon")}),
+    }
+
+
+def prompt_evento_disruptor(evento_info: Dict, resumen_antes: Dict, resumen_despues: Dict) -> str:
+    return (
+        f"Eres el sistema de explicabilidad de un repartidor autónomo en "
+        f"Monterrey. Se acaba de activar un evento disruptor:\n"
+        f"  Tipo: {evento_info['tipo']}\n"
+        f"  Zona afectada (lat, lon): {evento_info['zona']}\n"
+        f"  Radio: {evento_info['radio_km']} km\n"
+        f"  Multiplicador de costo aplicado: {evento_info['multiplicador']}x\n\n"
+        f"Estrategia ANTES del evento: ganancia=${resumen_antes['ganancia']}, "
+        f"{resumen_antes['pedidos_aceptados']} pedidos aceptados, "
+        f"{resumen_antes['pedidos_rechazados']} rechazados.\n"
+        f"Estrategia DESPUÉS del evento: ganancia=${resumen_despues['ganancia']}, "
+        f"{resumen_despues['pedidos_aceptados']} pedidos aceptados, "
+        f"{resumen_despues['pedidos_rechazados']} rechazados "
+        f"(razones: {', '.join(resumen_despues['razones_rechazo']) or 'ninguna'}).\n\n"
+        f"En máximo 3 líneas y en lenguaje natural, explica para el jurado por "
+        f"qué el agente cambió su estrategia a raíz de este evento. Sé "
+        f"específico sobre la causa geográfica (ej. 'Rechacé por tráfico en "
+        f"Constitución')."
+    )
+
+
+def explicar_evento_disruptor(evento_info: Dict, agente_antes, agente_despues,
+                                generador_texto: Callable[[str], str] = call_gemini) -> str:
+    """Punto de entrada que llama motor_matematico.py (o main.py) justo
+    después de activar_evento() y volver a correr ejecutar_turno().
+    agente_antes / agente_despues son AgentState (o cualquier objeto con
+    .ganancia_total y .log)."""
+    resumen_antes = resumen_agente(agente_antes)
+    resumen_despues = resumen_agente(agente_despues)
+    prompt = prompt_evento_disruptor(evento_info, resumen_antes, resumen_despues)
+    return generador_texto(prompt)
+
+
+# ---------------------------------------------------------------------------
+# 4. DEMO
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    import uuid
+    from motor_matematico import Order, SmartAgent, activar_evento, desactivar_eventos
+
+    posicion_inicial = (25.6714, -100.3096)
+    pedidos = [
+        Order(str(uuid.uuid4())[:8], (25.671, -100.309), (25.665, -100.300), 65, 1800),
+        Order(str(uuid.uuid4())[:8], (25.672, -100.310), (25.667, -100.301), 40, 1800),
+        Order(str(uuid.uuid4())[:8], (25.673, -100.311), (25.666, -100.302), 55, 1800),
+    ]
+
+    desactivar_eventos()
+    agente_antes = SmartAgent(posicion_inicial)
+    agente_antes.ejecutar_turno(pedidos)
+    print("Antes del evento:", resumen_agente(agente_antes.state))
+
+    evento_info = activar_evento((25.666, -100.301), radio_km=1.0, tipo="lluvia")
+
+    agente_despues = SmartAgent(posicion_inicial)
+    agente_despues.ejecutar_turno(pedidos)
+    print("Después del evento:", resumen_agente(agente_despues.state))
+
+    explicacion = explicar_evento_disruptor(evento_info, agente_antes.state, agente_despues.state)
+    print("\nExplicación de Gemini (stub):")
+    print(explicacion)
