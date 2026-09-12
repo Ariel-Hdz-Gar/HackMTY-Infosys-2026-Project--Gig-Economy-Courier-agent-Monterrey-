@@ -8,8 +8,11 @@ import time
 import sys, os
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Backend", "Backend_Dev2"))
 
+from Backend.Backend_Dev2.Debate_Rutas import debatir_rutas
 from Motor_Matematico import SmartAgent, BaselineAgent, activar_evento
 from Tiger_Data_io import leer_pedidos_pendientes, sincronizar_log_completo
+from Debate_Rutas import debatir_rutas, generar_opciones_ruta
+from Motor_Matematico import Order
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Backend", "Backend_Dev1"))
 from generator import generate_single_order, load_or_create_graph
@@ -82,8 +85,19 @@ def obtener_datos_tiger():
         st.error(f"Error en consulta: {e}")
         return [[25.6714, -100.3168]], [[25.6714, -100.3168]], 0.0, 0.0, "normal", 0
     
-ruta_smart, ruta_baseline, ganancia_smart, ganancia_baseline, evento_actual, orden_id = obtener_datos_tiger()
-razonamiento_smart = "Esperando decision de Gemini..."
+# ==========================================
+# EVALUACION DINAMICA (Baseline vs Smart con Gemini)
+# ==========================================
+posicion_actual = tuple(ruta_smart[-1])
+
+# Convertir la orden pendiente actual en objeto Order para el debate
+if orden_id != 0:
+    pedido_activo = [Order(str(orden_id), tuple(ruta_smart[0]), tuple(ruta_smart[-1]), 50.0, 1800)]
+    opciones = generar_opciones_ruta(posicion_actual, pedido_activo, k=2)
+    debate = debatir_rutas(opciones)
+    razonamiento_smart = debate.get("veredicto_mediador", "Evaluando ruta con Gemini...")
+else:
+    razonamiento_smart = "Sin órdenes pendientes en el sistema."
 
 # ==========================================
 # 3. INTERFAZ VISUAL
