@@ -1,6 +1,10 @@
 from fastapi import FastAPI
+from dotenv import load_dotenv
 from schemas import SolicitudMediacion, RespuestaMediacion
 from gemini_service import GeminiMediator
+
+# Carga las variables de entorno desde el archivo .env
+load_dotenv()
 
 app = FastAPI(
     title="CourierAI - Módulo de IA Mediador",
