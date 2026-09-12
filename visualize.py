@@ -17,12 +17,21 @@ def create_interactive_map(output_file: str = "mapa_monterrey.html", num_orders:
     # Coordenadas centrales de Monterrey (Macroplaza / Centro)
     mty_center = [25.6714, -100.3095]
     
-    # Crear mapa interactivo Folium usando OpenStreetMap
+    # Crear mapa interactivo Folium usando Esri World Street Map (sin bloqueos 403)
     m = folium.Map(
         location=mty_center,
         zoom_start=12,
-        tiles="OpenStreetMap"
+        tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+        attr="Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, Esri Japan, METI, Esri China (Hong Kong), Esri (Thailand), TomTom"
     )
+    
+    # Capa alternativa limpia Carto Voyager
+    folium.TileLayer(
+        tiles="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+        attr="&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors &copy; <a href='https://carto.com/attributions'>CARTO</a>",
+        name="Carto Voyager",
+        subdomains="abcd"
+    ).add_to(m)
     
     # Paleta de colores para diferentes rutas
     colors = ['#FF5722', '#2196F3', '#9C27B0', '#E91E63', '#009688', '#FF9800', '#3F51B5']
