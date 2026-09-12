@@ -25,7 +25,7 @@ from typing import List, Dict, Optional
 import psycopg2
 import psycopg2.extras
 
-from Motor_Matematico import Order
+from .Motor_Matematico import Order
 
 try:
     from dotenv import load_dotenv

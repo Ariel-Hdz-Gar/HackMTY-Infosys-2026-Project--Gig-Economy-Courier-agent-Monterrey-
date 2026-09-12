@@ -6,10 +6,13 @@ import os
 from dotenv import load_dotenv
 import time
 import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "Backend", "Backend_Dev2"))
+from pathlib import Path
 
-from Backend.Backend_Dev2.Motor_Matematico import SmartAgent, BaselineAgent, activar_evento
-from Backend.Backend_Dev2.Tiger_Data_io import leer_pedidos_pendientes, sincronizar_log_completo
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from Backend.Backend_Dev2.Motor_Matematico import (SmartAgent,BaselineAgent,activar_evento)
+from Backend.Backend_Dev2.Tiger_Data_io import (leer_pedidos_pendientes,sincronizar_log_completo)
 
 # ==========================================
 # 1. CONFIGURACION DE PAGINA
