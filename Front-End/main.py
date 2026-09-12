@@ -69,8 +69,12 @@ def obtener_datos_tiger():
                 orden_id = orden_actual[0]
                 evento_actual = orden_actual[1] or "normal"
                 # Usamos el origen y destino de la orden como ruta temporal
-                ruta_smart = [[orden_actual[2], orden_actual[3]], [orden_actual[4], orden_actual[5]]]
-                ruta_baseline = ruta_smart 
+                ruta_smart = obtener_ruta_coordenadas
+                (
+                    (orden_actual[2], orden_actual[3]),   # origen
+                    (orden_actual[4], orden_actual[5]),   # destino
+                ) 
+                ruta_baseline = ruta_smart
             else:
                 orden_id = 0
                 evento_actual = "normal"
