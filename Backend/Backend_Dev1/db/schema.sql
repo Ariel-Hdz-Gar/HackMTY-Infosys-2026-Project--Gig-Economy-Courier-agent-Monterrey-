@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS orders (
     expires_at TIMESTAMP WITH TIME ZONE,
     status VARCHAR(20) DEFAULT 'PENDIENTE' CHECK (status IN ('PENDIENTE', 'ACEPTADA', 'RECHAZADA', 'COMPLETADA', 'EXPIRADA')),
     assigned_agent VARCHAR(30) CHECK (assigned_agent IN ('BASELINE', 'SMART') OR assigned_agent IS NULL),
+    route_path JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -30,6 +31,7 @@ CREATE TABLE IF NOT EXISTS driver_logs (
     current_node_id BIGINT,
     current_order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
     status VARCHAR(30) DEFAULT 'IDLE' CHECK (status IN ('IDLE', 'MOVING_TO_PICKUP', 'DELIVERING', 'RETURNING')),
+    route_path JSONB,
     recorded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -48,3 +50,38 @@ CREATE TABLE IF NOT EXISTS transactions (
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_driver_logs_agent ON driver_logs(agent_type, recorded_at DESC);
 CREATE INDEX IF NOT EXISTS idx_transactions_agent ON transactions(agent_type);
+
+-- Tabla 4: Registro de decisiones de los agentes (Dev 2 / OR-Tools)
+CREATE TABLE IF NOT EXISTS decisiones (
+    id BIGSERIAL PRIMARY KEY,
+    order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+    agente TEXT NOT NULL,
+    accion TEXT NOT NULL,
+    razon TEXT,
+    margen_neto NUMERIC,
+    metadata JSONB,
+    timestamp TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Vista de compatibilidad v_orders para alias en español / inglés
+CREATE OR REPLACE VIEW v_orders AS 
+SELECT 
+    id AS order_id,
+    id,
+    origin_lat AS origen_lat,
+    origin_lat,
+    origin_lon AS origen_lon,
+    origin_lon,
+    dest_lat AS destino_lat,
+    dest_lat,
+    dest_lon AS destino_lon,
+    dest_lon,
+    base_fare AS tarifa_base,
+    base_fare,
+    time_window_seconds AS tiempo_limite_s,
+    time_window_seconds,
+    status AS estado,
+    status,
+    created_at AS timestamp_creacion,
+    created_at
+FROM orders;
