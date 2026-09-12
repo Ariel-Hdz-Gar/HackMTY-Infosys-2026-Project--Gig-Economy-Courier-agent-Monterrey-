@@ -14,6 +14,7 @@ logging.basicConfig(
 logger = logging.getLogger("db_connection")
 
 # Parámetros de conexión a Tiger Data (PostgreSQL)
+DATABASE_URL = os.getenv("DATABASE_URL")
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = os.getenv("DB_PORT", "5432")
 DB_NAME = os.getenv("DB_NAME", "courier_db")
@@ -25,19 +26,23 @@ DB_SSLMODE = os.getenv("DB_SSLMODE", "prefer")
 def get_db_connection():
     """
     Retorna una conexión activa a la base de datos PostgreSQL / Tiger Data.
+    Soporta tanto DATABASE_URL (URL completa) como variables individuales.
     """
     try:
-        conn = psycopg2.connect(
-            host=DB_HOST,
-            port=DB_PORT,
-            dbname=DB_NAME,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            sslmode=DB_SSLMODE
-        )
+        if DATABASE_URL:
+            conn = psycopg2.connect(DATABASE_URL)
+        else:
+            conn = psycopg2.connect(
+                host=DB_HOST,
+                port=DB_PORT,
+                dbname=DB_NAME,
+                user=DB_USER,
+                password=DB_PASSWORD,
+                sslmode=DB_SSLMODE
+            )
         return conn
     except Exception as e:
-        logger.error(f"Error al conectar con la base de datos ({DB_HOST}:{DB_PORT}/{DB_NAME}): {e}")
+        logger.error(f"Error al conectar con la base de datos: {e}")
         raise e
 
 
