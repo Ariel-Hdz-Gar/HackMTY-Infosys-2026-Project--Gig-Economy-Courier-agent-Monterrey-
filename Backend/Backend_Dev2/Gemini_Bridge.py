@@ -12,23 +12,68 @@ Dev 3 solo tenga que implementar UNA función real, no varias.
 """
 
 import logging
+import requests
 from typing import Callable, Dict, List
 
 logger = logging.getLogger("gemini_bridge")
 
+# URL del microservicio FastAPI de Dev 3. Si él lo despliega en otro puerto
+# o en un servidor distinto de localhost, actualiza esto (o mejor, pásalo
+# por variable de entorno -- ver GEMINI_SERVICE_URL más abajo).
+import os
+GEMINI_SERVICE_URL = os.environ.get("GEMINI_SERVICE_URL", "http://localhost:8000/evaluar-rutas")
+
 
 # ---------------------------------------------------------------------------
-# 1. PUNTO ÚNICO DE CONTACTO CON LA API (Dev 3 implementa esto)
+# 1. PUNTO ÚNICO DE CONTACTO CON LA API (ahora vía el microservicio de Dev 3)
 # ---------------------------------------------------------------------------
 
 def call_gemini(prompt: str) -> str:
-    """STUB. Sustituir por la llamada real, ej:
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        return model.generate_content(prompt).text
-    Mientras no esté implementada, el resto del sistema sigue funcionando
-    con esta respuesta simulada (no bloquea a Dev 2 ni a la demo)."""
-    logger.info(f"[STUB] call_gemini() recibió un prompt de {len(prompt)} caracteres")
-    return f"[Respuesta simulada de Gemini para prompt de {len(prompt)} caracteres]"
+    """Llama al microservicio FastAPI de Dev 3 (Opción A: monolito local ->
+    microservicio). Dev 3 corre su servidor con:
+        uvicorn main:app --port 8000
+    y este archivo le manda el prompt ya armado como 'evento_contexto'.
+
+    NOTA: opcion_baseline / opcion_smart van vacías/en cero porque nuestras
+    funciones (prompt_defensor_ruta, prompt_mediador_rutas,
+    explicar_evento_disruptor) ya comprimen todo el contexto relevante
+    dentro del texto de 'prompt'. Si el endpoint de Dev 3 necesita esos
+    campos poblados de verdad (no solo el texto), hay que rediseñar la
+    llamada para pasar datos estructurados en vez de un string plano --
+    confírmalo con él antes de confiar en la calidad de la respuesta."""
+    try:
+        response = requests.post(
+            GEMINI_SERVICE_URL,
+            json={
+                "evento_contexto": prompt,
+                "opcion_baseline": {
+                    "agente": "Baseline",
+                    "ruta_nodos": [],
+                    "tiempo_est_min": 0,
+                    "ganancia_neta_mxn": 0,
+                    "argumento_agente": ""
+                },
+                "opcion_smart": {
+                    "agente": "Smart",
+                    "ruta_nodos": [],
+                    "tiempo_est_min": 0,
+                    "ganancia_neta_mxn": 0,
+                    "argumento_agente": ""
+                }
+            },
+            timeout=10,
+        )
+        response.raise_for_status()
+        return response.json()["explicacion_gemini"]
+    except requests.exceptions.ConnectionError:
+        logger.warning(
+            f"No se pudo conectar al microservicio de Dev 3 en {GEMINI_SERVICE_URL}. "
+            f"¿Está corriendo 'uvicorn main:app --port 8000'? Usando texto simulado."
+        )
+        return f"[Sin conexión al servicio de Gemini - prompt de {len(prompt)} caracteres]"
+    except Exception as e:
+        logger.warning(f"Error llamando al microservicio de Dev 3: {e}")
+        return f"[Error conectando a FastAPI: {e}]"
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +174,7 @@ def explicar_evento_disruptor(evento_info: Dict, agente_antes, agente_despues,
 
 if __name__ == "__main__":
     import uuid
-    from motor_matematico import Order, SmartAgent, activar_evento, desactivar_eventos
+    from Motor_Matematico import Order, SmartAgent, activar_evento, desactivar_eventos
 
     posicion_inicial = (25.6714, -100.3096)
     pedidos = [

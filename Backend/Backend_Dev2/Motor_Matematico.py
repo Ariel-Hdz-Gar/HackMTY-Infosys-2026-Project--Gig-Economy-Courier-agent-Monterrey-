@@ -44,6 +44,9 @@ class Order:
     tarifa_base: float      # MXN
     tiempo_limite_s: int    # segundos disponibles para entregar
     timestamp_creacion: float = field(default_factory=time.time)
+    evento: Optional[str] = None  # 'lluvia' | 'trafico' | None -- viene de
+                                   # orders.estado_ciudad (Tiger Data), si Dev 1
+                                   # ya agregó esa columna. Ver multiplicador_para().
 
 
 @dataclass
@@ -157,8 +160,16 @@ def margen_neto(order: Order, desde: tuple, multiplicador: float = 1.0) -> float
     return order.tarifa_base - costo
 
 
+_MULTIPLICADOR_POR_EVENTO = {"lluvia": 1.8, "trafico": 2.5}
+
+
 def multiplicador_para(order: Order) -> float:
-    """Revisa si el destino cae en una zona con penalización activa."""
+    """Prioridad: 1) el evento propio del pedido (order.evento, si viene
+    poblado desde orders.estado_ciudad en Tiger Data) 2) las zonas activadas
+    manualmente con activar_evento() (para el botón de la demo en vivo)."""
+    if order.evento and order.evento in _MULTIPLICADOR_POR_EVENTO:
+        return _MULTIPLICADOR_POR_EVENTO[order.evento]
+
     for zona, mult in _penalizaciones_zona.items():
         # zona simplificada como (lat, lon, radio_km)
         lat, lon, radio = zona

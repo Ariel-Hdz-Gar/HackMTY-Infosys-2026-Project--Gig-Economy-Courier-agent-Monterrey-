@@ -1,0 +1,9 @@
+# CourierAI - Backend_Dev2 (Motor Matemático)
+# Instalar con: pip install -r requirements.txt --break-system-packages
+# (o sin la bandera si no estás en un entorno gestionado tipo Linux/WSL)
+
+ortools>=9.9
+psycopg2-binary>=2.9
+python-dotenv>=1.0
+requests>=2.31
+scikit-learn>=1.3

@@ -13,7 +13,7 @@ tocar nada de este archivo, solo gemini_bridge.py.
 from dataclasses import dataclass, field
 from typing import List, Callable, Optional
 
-from motor_matematico import (
+from Motor_Matematico import (
     Order, distancia_km, margen_neto, multiplicador_para,
     COSTO_POR_KM, COSTO_POR_MINUTO, VELOCIDAD_KMH,
 )
@@ -101,7 +101,7 @@ def generar_opciones_ruta(posicion_agente: tuple, pedidos: List[Order],
 # 2. DEBATE MULTI-IA (usa el puente compartido de gemini_bridge.py)
 # ---------------------------------------------------------------------------
 
-from gemini_bridge import call_gemini, prompt_defensor_ruta as prompt_defensor, \
+from Gemini_Bridge import call_gemini, prompt_defensor_ruta as prompt_defensor, \
     prompt_mediador_rutas as prompt_mediador
 
 

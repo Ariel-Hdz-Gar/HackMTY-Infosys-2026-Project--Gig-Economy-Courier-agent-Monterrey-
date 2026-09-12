@@ -83,7 +83,20 @@ def get_connection():
 # ---------------------------------------------------------------------------
 
 def leer_pedidos_pendientes(limit: int = 50) -> List[Order]:
-    query = """
+    """Intenta leer también orders.estado_ciudad (evento por pedido: 'lluvia',
+    'trafico', etc). Si esa columna todavía no existe en tu base (no estaba
+    en el esquema original de Dev 1), cae automáticamente a la consulta sin
+    ella -- no rompe el resto del motor, solo pierdes el dato del evento."""
+    query_con_evento = """
+        SELECT order_id, origen_lat, origen_lon, destino_lat, destino_lon,
+               tarifa_base, tiempo_limite_s, estado_ciudad,
+               EXTRACT(EPOCH FROM timestamp_creacion) AS ts_epoch
+        FROM v_orders
+        WHERE estado = 'PENDIENTE'
+        ORDER BY timestamp_creacion ASC
+        LIMIT %s;
+    """
+    query_sin_evento = """
         SELECT order_id, origen_lat, origen_lon, destino_lat, destino_lon,
                tarifa_base, tiempo_limite_s,
                EXTRACT(EPOCH FROM timestamp_creacion) AS ts_epoch
@@ -92,19 +105,28 @@ def leer_pedidos_pendientes(limit: int = 50) -> List[Order]:
         ORDER BY timestamp_creacion ASC
         LIMIT %s;
     """
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(query, (limit,))
-            filas = cur.fetchall()
+    try:
+        with get_connection() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(query_con_evento, (limit,))
+                filas = cur.fetchall()
+        tiene_evento = True
+    except psycopg2.errors.UndefinedColumn:
+        with get_connection() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(query_sin_evento, (limit,))
+                filas = cur.fetchall()
+        tiene_evento = False
 
     return [
         Order(
-            order_id=str(f["order_id"]),          # orders.id es entero -> str
+            order_id=str(f["order_id"]),
             origen=(f["origen_lat"], f["origen_lon"]),
             destino=(f["destino_lat"], f["destino_lon"]),
             tarifa_base=float(f["tarifa_base"]),
             tiempo_limite_s=int(f["tiempo_limite_s"]),
             timestamp_creacion=float(f["ts_epoch"]),
+            evento=(f.get("estado_ciudad") if tiene_evento else None),
         )
         for f in filas
     ]
@@ -205,18 +227,44 @@ def sincronizar_log_completo(agente_state, agente_nombre: str):
             actualizar_estado_orden(order_id, accion, agente_nombre)
 
 
+def ejecutar_ciclo_completo(posicion_inicial: tuple, limit: int = 50):
+    """Corre Baseline Y Smart en paralelo sobre el MISMO lote de pedidos
+    pendientes (cada uno con su propia copia de estado, para que la
+    comparación de ganancias sea justa), y sincroniza el log de ambos a
+    Tiger Data. Esto es lo que la demo necesita mostrar lado a lado."""
+    from Motor_Matematico import BaselineAgent, SmartAgent
+
+    pedidos = leer_pedidos_pendientes(limit=limit)
+
+    baseline = BaselineAgent(posicion_inicial)
+    orden = baseline.decidir(pedidos)
+    if orden:
+        baseline.ejecutar(orden)
+
+    smart = SmartAgent(posicion_inicial)
+    smart.ejecutar_turno(pedidos)
+
+    sincronizar_log_completo(baseline.state, agente_nombre="BASELINE")
+    sincronizar_log_completo(smart.state, agente_nombre="SMART")
+
+    return baseline.state, smart.state
+
+
 # ---------------------------------------------------------------------------
 # 4. DEMO
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    from Motor_Matematico import SmartAgent
+    estado_baseline, estado_smart = ejecutar_ciclo_completo(
+        posicion_inicial=(25.6714, -100.3096))
 
-    pedidos = leer_pedidos_pendientes(limit=20)
-    print(f"Leídos {len(pedidos)} pedidos pendientes de Tiger Data")
+    print(f"Pedidos evaluados por ambos agentes desde Tiger Data")
+    print(f"\n=== BASELINE === ganancia: ${estado_baseline.ganancia_total:.2f}")
+    for entrada in estado_baseline.log:
+        print(" ", entrada)
 
-    agente = SmartAgent(posicion_inicial=(25.6714, -100.3096))
-    agente.ejecutar_turno(pedidos)
+    print(f"\n=== SMART === ganancia: ${estado_smart.ganancia_total:.2f}")
+    for entrada in estado_smart.log:
+        print(" ", entrada)
 
-    sincronizar_log_completo(agente.state, agente_nombre="SMART")
-    print("Decisiones y estados sincronizados a Tiger Data")
+    print("\nDecisiones y estados sincronizados a Tiger Data (ambos agentes)")
