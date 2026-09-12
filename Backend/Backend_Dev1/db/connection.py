@@ -14,7 +14,7 @@ logging.basicConfig(
 logger = logging.getLogger("db_connection")
 
 # Parámetros de conexión a Tiger Data (PostgreSQL)
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL") or os.getenv("TIGER_DATA_URL")
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = os.getenv("DB_PORT", "5432")
 DB_NAME = os.getenv("DB_NAME", "courier_db")

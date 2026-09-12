@@ -101,7 +101,7 @@ pip install -r requirements.txt
 ### 2. Configurar variables de entorno (`.env`)
 Crea un archivo `.env` en la raíz (puedes basarte en `.env.example`):
 ```env
-DATABASE_URL=postgres://tsdbadmin:q33z9gicarant7kc@tsfgwbki2d.w84nx9piyi.tsdb.cloud.timescale.com:39869/tsdb?sslmode=require
+DATABASE_URL=postgres://usuario:password@host:puerto/db?sslmode=require
 ORDER_INTERVAL_SECONDS=4
 ```
 
