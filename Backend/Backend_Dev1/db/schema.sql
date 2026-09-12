@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS orders (
     status VARCHAR(20) DEFAULT 'PENDIENTE' CHECK (status IN ('PENDIENTE', 'ACEPTADA', 'RECHAZADA', 'COMPLETADA', 'EXPIRADA')),
     assigned_agent VARCHAR(30) CHECK (assigned_agent IN ('BASELINE', 'SMART') OR assigned_agent IS NULL),
     route_path JSONB,
+    event_type VARCHAR(30) DEFAULT 'normal',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -82,6 +83,8 @@ SELECT
     time_window_seconds,
     status AS estado,
     status,
+    event_type AS estado_ciudad,
+    event_type,
     created_at AS timestamp_creacion,
     created_at
 FROM orders;

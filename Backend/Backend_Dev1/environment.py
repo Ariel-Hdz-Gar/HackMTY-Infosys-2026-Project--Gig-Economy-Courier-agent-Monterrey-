@@ -10,7 +10,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("environment")
 
-GRAPH_FILEPATH = "monterrey_drive.graphml"
+GRAPH_FILEPATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "monterrey_drive.graphml"))
 DEFAULT_PLACE = "Monterrey, Nuevo León, Mexico"
 
 

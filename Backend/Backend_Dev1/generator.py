@@ -22,16 +22,21 @@ MAX_BASE_FARE = float(os.getenv("ORDER_MAX_FARE", "180.0"))
 TIME_WINDOW_SEC = int(os.getenv("ORDER_TIME_WINDOW_SECONDS", "600"))
 
 
-def generate_single_order(G, conn=None):
+def generate_single_order(G, conn=None, event_type: str = None):
     """
     Genera un pedido simulado eligiendo nodos reales de la red vial de Monterrey
     e insertándolo en la tabla 'orders' de Tiger Data.
+    Soporta tipos de evento: 'normal', 'clima', 'trafico'.
     """
     nodes = get_random_nodes(G, n=2)
     orig_node, dest_node = nodes[0], nodes[1]
     
     orig_lat, orig_lon = get_node_coords(G, orig_node)
     dest_lat, dest_lon = get_node_coords(G, dest_node)
+
+    # Si no se especifica evento, 80% normal, 10% clima, 10% trafico
+    if not event_type:
+        event_type = random.choices(["normal", "clima", "trafico"], weights=[0.8, 0.1, 0.1])[0]
 
     # Calcular distancia real para sugerir tarifa realista
     distance_meters = calculate_route_distance(G, orig_node, dest_node, weight="length")
@@ -59,14 +64,14 @@ def generate_single_order(G, conn=None):
                 INSERT INTO orders (
                     origin_lat, origin_lon, dest_lat, dest_lon,
                     origin_node_id, dest_node_id,
-                    base_fare, time_window_seconds, expires_at, status
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    base_fare, time_window_seconds, expires_at, status, event_type
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id;
                 """,
                 (
                     orig_lat, orig_lon, dest_lat, dest_lon,
                     orig_node, dest_node,
-                    calculated_fare, TIME_WINDOW_SEC, expires_at, "PENDIENTE"
+                    calculated_fare, TIME_WINDOW_SEC, expires_at, "PENDIENTE", event_type
                 )
             )
             order_id = cur.fetchone()[0]
@@ -74,7 +79,7 @@ def generate_single_order(G, conn=None):
         
         dist_km_str = f"{distance_meters/1000.0:.2f} km" if distance_meters != float("inf") else "N/A"
         logger.info(
-            f" [Orden #{order_id} Creada] Tarifa: ${calculated_fare} MXN | Distancia: {dist_km_str} | "
+            f" [Orden #{order_id} Creada] Evento: {event_type} | Tarifa: ${calculated_fare} MXN | Distancia: {dist_km_str} | "
             f"Origen: ({orig_lat:.4f}, {orig_lon:.4f}) -> Destino: ({dest_lat:.4f}, {dest_lon:.4f})"
         )
         return order_id
