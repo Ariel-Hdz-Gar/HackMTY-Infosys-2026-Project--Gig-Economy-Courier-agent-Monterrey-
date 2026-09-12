@@ -12,7 +12,7 @@ conecte su cliente de Gemini en el punto marcado.
 from dataclasses import dataclass, field
 from typing import List, Callable, Optional
 
-from Motor_Matematico import (
+from Backend.Backend_Dev2.Motor_Matematico import (
     Order, distancia_km, margen_neto, multiplicador_para,
     COSTO_POR_KM, COSTO_POR_MINUTO, VELOCIDAD_KMH,
 )
