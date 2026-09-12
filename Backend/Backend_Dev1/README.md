@@ -40,13 +40,16 @@ flowchart TD
 
 ```text
 HackMTY-Infosys-2026-Project--Gig-Economy-Courier-agent-Monterrey-/
-├── db/                         # Módulo de Base de Datos (Tiger Data)
-│   ├── schema.sql              # DDL: Tablas orders, driver_logs y transactions
-│   └── connection.py           # Gestor de conexión PostgreSQL/Tiger Data e init_db()
-├── tools/                      # Herramientas de diagnóstico y demo
+├── backend/                    # Módulo Backend y Simulación (Dev 1, Dev 2, Dev 3)
+│   ├── db/
+│   │   ├── schema.sql          # DDL: Tablas orders, driver_logs y transactions (Tiger Data)
+│   │   └── connection.py       # Gestor de conexión PostgreSQL e inicializador init_db()
+│   ├── environment.py          # Grafo vial de Monterrey y funciones de ruteo (OSMnx)
+│   ├── generator.py            # Generador continuo de pedidos en streaming
+│   └── monterrey_drive.graphml # Grafo vial cacheado (carga en ~3s)
+├── frontend/                   # Módulo Frontend y Visualización (Dev 4)
 │   └── visualize.py            # Generador de mapas interactivos HTML (Folium + Esri)
-├── environment.py              # Gestor del grafo vial de Monterrey y funciones de ruteo
-├── generator.py                # Generador continuo de pedidos en streaming
+├── INSTRUCCIONES_EQUIPO.txt    # Documento de hoja de ruta y guía de despliegue en Vultr
 ├── requirements.txt            # Dependencias de Python (osmnx, networkx, psycopg2, folium)
 ├── .env.example                # Plantilla de variables de entorno
 └── README.md                   # Documentación principal del proyecto
