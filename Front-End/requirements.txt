@@ -8,3 +8,4 @@ streamlit
 streamlit-folium
 ortools
 scikit-learn
+genai
