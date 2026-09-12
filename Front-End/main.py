@@ -10,7 +10,6 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "
 
 from Motor_Matematico import SmartAgent, BaselineAgent, activar_evento
 from Tiger_Data_io import leer_pedidos_pendientes, sincronizar_log_completo
-from Backend.Backend_Dev2.Debate_Rutas import debatir_rutas 
 from Debate_Rutas import debatir_rutas, generar_opciones_ruta
 from Motor_Matematico import Order
 
@@ -84,6 +83,8 @@ def obtener_datos_tiger():
         conexion.rollback() 
         st.error(f"Error en consulta: {e}")
         return [[25.6714, -100.3168]], [[25.6714, -100.3168]], 0.0, 0.0, "normal", 0
+
+ruta_smart, ruta_baseline, ganancia_smart, ganancia_baseline, evento_actual, orden_id = obtener_datos_tiger()
     
 # ==========================================
 # EVALUACION DINAMICA (Baseline vs Smart con Gemini)
