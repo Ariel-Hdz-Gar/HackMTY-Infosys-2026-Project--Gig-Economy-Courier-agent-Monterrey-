@@ -1,0 +1,25 @@
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Data and Graph caches
+*.graphml
+*.geojson
+*.gpkg
+*.html
+cache/
+.cache/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.class
+
+# Environment variables
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
