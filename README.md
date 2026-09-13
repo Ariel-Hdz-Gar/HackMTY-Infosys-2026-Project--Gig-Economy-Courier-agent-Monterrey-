@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🚀 CourierAI
+#  CourierAI
 ### Autonomous AI Dispatch & Routing Agent for Last-Mile Logistics in Monterrey
 
 [![HackMTY 2026](https://img.shields.io/badge/Hackathon-HackMTY%202026-orange.svg)](https://hackmty.com/)
