@@ -12,6 +12,7 @@ from Motor_Matematico import SmartAgent, BaselineAgent, activar_evento, obtener_
 from Tiger_Data_io import leer_pedidos_pendientes, sincronizar_log_completo
 from Debate_Rutas import debatir_rutas, generar_opciones_ruta
 from Motor_Matematico import Order
+from Gemini_Bridge import explicar_evento_con_dev3  # ajusta el nombre exacto de tu archivo
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Backend", "Backend_Dev1"))
 from generator import generate_single_order, load_or_create_graph

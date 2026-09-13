@@ -274,15 +274,23 @@ def sincronizar_log_completo(agente_state, agente_nombre: str, conn=None):
             _sincronizar(c)
 
 
-def ejecutar_ciclo_completo(posicion_inicial: tuple, limit: int = 50):
+def ejecutar_ciclo_completo(posicion_inicial: tuple, limit: int = 50, pedidos=None):
     """Corre Baseline Y Smart en paralelo sobre el MISMO lote de pedidos
     pendientes (cada uno con su propia copia de estado, para que la
     comparación de ganancias sea justa), y sincroniza el log de ambos a
     Tiger Data usando UNA SOLA conexión para todo el ciclo (mucho más
-    rápido que abrir una conexión nueva por cada fila)."""
+    rápido que abrir una conexión nueva por cada fila).
+
+    Si ya leíste los pedidos tú mismo (ej. para armar el mapa en el
+    frontend), pásalos en 'pedidos' para no consultarlos dos veces.
+
+    Regresa (baseline_state, smart_state, pedidos) -- el tercer valor sirve
+    para que el caller pueda mapear qué pedido exacto aceptó cada agente
+    (útil para dibujar rutas DISTINTAS por agente en el mapa)."""
     from Motor_Matematico import BaselineAgent, SmartAgent
 
-    pedidos = leer_pedidos_pendientes(limit=limit)
+    if pedidos is None:
+        pedidos = leer_pedidos_pendientes(limit=limit)
 
     baseline = BaselineAgent(posicion_inicial)
     orden = baseline.decidir(pedidos)
@@ -296,7 +304,7 @@ def ejecutar_ciclo_completo(posicion_inicial: tuple, limit: int = 50):
         sincronizar_log_completo(baseline.state, agente_nombre="BASELINE", conn=conn)
         sincronizar_log_completo(smart.state, agente_nombre="SMART", conn=conn)
 
-    return baseline.state, smart.state
+    return baseline.state, smart.state, pedidos
 
 
 # ---------------------------------------------------------------------------
@@ -304,7 +312,7 @@ def ejecutar_ciclo_completo(posicion_inicial: tuple, limit: int = 50):
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    estado_baseline, estado_smart = ejecutar_ciclo_completo(
+    estado_baseline, estado_smart, pedidos = ejecutar_ciclo_completo(
         posicion_inicial=(25.6714, -100.3096))
 
     print(f"Pedidos evaluados por ambos agentes desde Tiger Data")
