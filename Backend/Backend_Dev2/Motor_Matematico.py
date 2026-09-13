@@ -83,7 +83,7 @@ _RUTA_CACHE: Dict[tuple, float] = {}   # (nodo1, nodo2) -> km
 
 try:
     # Ajusta esta ruta si la estructura final de carpetas cambia.
-    ruta_dev1 = os.path.join(os.path.dirname(os.path.abspath(file_)),
+    _ruta_dev1 = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 "..", "Backend_Dev1")
     if os.path.isdir(_ruta_dev1) and _ruta_dev1 not in sys.path:
         sys.path.append(_ruta_dev1)
@@ -97,6 +97,7 @@ except Exception as e:
         f"distancia_km() usará línea recta (haversine) como respaldo."
     )
 
+
 def _get_grafo():
     global _GRAFO
     if _GRAFO is None:
@@ -105,7 +106,7 @@ def _get_grafo():
         # corriendo este proceso (Front-End corre desde otra carpeta que
         # Dev 1, así que una ruta relativa no lo encontraría).
         ruta_graphml = os.path.join(
-            os.path.dirname(os.path.abspath(_file_)),
+            os.path.dirname(os.path.abspath(__file__)),
             "..", "Backend_Dev1", "monterrey_drive.graphml",
         )
         _GRAFO = load_or_create_graph(filepath=ruta_graphml)
@@ -135,7 +136,8 @@ def distancia_km(p1: tuple, p2: tuple) -> float:
             if clave_ruta not in _RUTA_CACHE:
                 metros = calculate_route_distance(_get_grafo(), n1, n2)
                 _RUTA_CACHE[clave_ruta] = (metros / 1000.0) if metros != float("inf") else None
-                km = _RUTA_CACHE[clave_ruta]
+
+            km = _RUTA_CACHE[clave_ruta]
             if km is not None:
                 return km
             # sin ruta conectada en el grafo -> cae a haversine para no
@@ -255,6 +257,7 @@ def multiplicador_para(order: Order) -> float:
             return mult
     return 1.0
 
+
 # ---------------------------------------------------------------------------
 # 4. AGENTE BASELINE
 # ---------------------------------------------------------------------------
@@ -262,7 +265,7 @@ def multiplicador_para(order: Order) -> float:
 class BaselineAgent:
     """Acepta siempre la orden más antigua disponible, sin evaluar margen."""
 
-    def _init_(self, posicion_inicial: tuple):
+    def __init__(self, posicion_inicial: tuple):
         self.state = AgentState(nombre="Baseline", posicion=posicion_inicial)
 
     def decidir(self, ordenes_pendientes: List[Order]) -> Optional[Order]:
@@ -297,7 +300,7 @@ class SmartAgent:
          real de una ruta combinada vs. rutas individuales.
     """
 
-    def _init_(self, posicion_inicial: tuple, tiempo_turno_s: int = 3600,
+    def __init__(self, posicion_inicial: tuple, tiempo_turno_s: int = 3600,
                  radio_batching_km: float = 1.5):
         self.state = AgentState(nombre="Inteligente", posicion=posicion_inicial)
         self.tiempo_disponible_s = tiempo_turno_s
@@ -460,13 +463,11 @@ def desactivar_eventos():
     _penalizaciones_zona.clear()
 
 
-
-
 # ---------------------------------------------------------------------------
 # 7. DEMO LOCAL (mock data, sin Tiger Data ni OSMnx)
 # ---------------------------------------------------------------------------
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     posicion_inicial = (25.6714, -100.3096)  # aprox. Centro de Monterrey
 
     ordenes_mock = [
