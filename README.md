@@ -14,7 +14,7 @@
 
 ---
 
-## 📌 Overview
+## Overview
 
 **CourierAI** is an autonomous AI-driven logistics simulation and routing platform designed for gig economy delivery couriers in **Monterrey, Mexico**.
 
