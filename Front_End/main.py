@@ -8,7 +8,7 @@ import time
 import sys, os
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Backend", "Backend_Dev2"))
 
-from Motor_Matematico import SmartAgent, BaselineAgent, activar_evento, obtener_ruta_coordenadas, Order
+from Motor_Matematico import SmartAgent, BaselineAgent, activar_evento, obtener_ruta_coordenadas, obtener_ruta_coordenadas_evitando_eventos, Order
 from Tiger_Data_io import leer_pedidos_pendientes, sincronizar_log_completo, ejecutar_ciclo_completo
 from Debate_Rutas import debatir_rutas, generar_opciones_ruta
 from Gemini_Bridge import explicar_evento_con_dev3  # ajusta el nombre exacto de tu archivo
@@ -27,6 +27,19 @@ G = obtener_grafo()
 if st.sidebar.button("⚡ Generar Nueva Orden"):
     nueva_id = generate_single_order(G)
     st.sidebar.success(f"¡Orden #{nueva_id} generada en Tiger Data!")
+
+st.sidebar.markdown("---")
+modo_automatico = st.sidebar.checkbox(
+    "🔄 Actualización automática",
+    value=True,
+    help="Desactívalo durante la demo para controlar tú mismo cuándo avanza, "
+         "en vez de que se refresque cada pocos segundos mientras hablas.",
+)
+if not modo_automatico:
+    if st.sidebar.button("➡️ Avanzar al siguiente ciclo"):
+        st.rerun()
+    st.sidebar.caption("Modo manual: la página NO se refresca sola. "
+                        "Usa este botón cuando quieras avanzar.")
 
 # ==========================================
 # 1. CONFIGURACION DE PAGINA
@@ -99,9 +112,15 @@ if pedidos:
     # Esto es lo que de verdad mueve las métricas: marca ACEPTADA/RECHAZADA
     # en Tiger Data, y alimenta al simulator.py de Dev 1 para que, con el
     # tiempo, la ganancia histórica de arriba suba.
+    # --- Procesa SOLO la orden más antigua en este ciclo (no todo el
+    # backlog de golpe) -- así lo que se decide y lo que se muestra en
+    # pantalla siempre coinciden, nada se resuelve "invisible" detrás
+    # de la orden activa mientras avanzas manualmente paso a paso.
+    pedidos_a_procesar = pedidos[:1]
+
     if st.session_state.get("ultimos_ids_pedidos") != ids_actuales:
         baseline_state, smart_state, _ = ejecutar_ciclo_completo(
-            posicion_inicial=POSICION_BASE, pedidos=pedidos
+            posicion_inicial=POSICION_BASE, pedidos=pedidos_a_procesar
         )
         st.session_state["ultimos_ids_pedidos"] = ids_actuales
         st.session_state["baseline_state"] = baseline_state
@@ -114,7 +133,19 @@ if pedidos:
     # (leer_pedidos_pendientes ya viene ordenada ASC por timestamp_creacion,
     # así que pedidos[0] es justo la que BaselineAgent elegiría también.)
     orden_activa = pedidos[0]
-    ruta_activa = obtener_ruta_coordenadas(orden_activa.origen, orden_activa.destino)
+
+    # Solo recalcula las rutas (caro: recorre el grafo completo) si la
+    # orden activa cambió respecto al ciclo anterior -- si sigue siendo
+    # la misma, reutiliza lo que ya se calculó.
+    if st.session_state.get("orden_activa_id_rutas") != orden_activa.order_id:
+        st.session_state["ruta_baseline_calc"] = obtener_ruta_coordenadas(
+            orden_activa.origen, orden_activa.destino)
+        st.session_state["ruta_smart_calc"] = obtener_ruta_coordenadas_evitando_eventos(
+            orden_activa.origen, orden_activa.destino)
+        st.session_state["orden_activa_id_rutas"] = orden_activa.order_id
+
+    ruta_baseline_calc = st.session_state["ruta_baseline_calc"]
+    ruta_smart_calc = st.session_state["ruta_smart_calc"]
     evento_actual = orden_activa.evento or "normal"
 
     # Baseline: siempre "aceptaría" cualquier cosa (su algoritmo real no
@@ -149,23 +180,36 @@ if pedidos:
 
     # Ambos agentes usan la MISMA ruta (mismo origen/destino) -- la
     # diferencia está en accion/razon, no en las coordenadas.
-    ruta_smart = ruta_activa
-    ruta_baseline = ruta_activa
-    posicion_actual = tuple(ruta_activa[-1])
+    ruta_smart = ruta_smart_calc
+    ruta_baseline = ruta_baseline_calc
+    posicion_actual = tuple(ruta_smart[-1])
 
-    # --- Veredicto de Gemini: limitado por TIEMPO, no por cambios de pedidos ---
-    SEGUNDOS_MIN_ENTRE_LLAMADAS_GEMINI = 90
+    # --- Veredicto de Gemini: se refresca cuando cambia el lote de pedidos
+    # (botón "Generar Nueva Orden" o generator.py insertando automático) --
+    # En MODO MANUAL no aplicamos el límite de tiempo (tú controlas el
+    # ritmo con el botón, no hace falta protegerte de ti mismo). En modo
+    # automático SÍ se respeta el mínimo, porque ahí la página avanza sola
+    # sin que puedas frenarla.
+    SEGUNDOS_MIN_ENTRE_LLAMADAS_GEMINI = 30
     ahora = time.time()
     ultima_llamada = st.session_state.get("ultima_llamada_gemini_ts", 0)
+    ids_previos_gemini = st.session_state.get("ultimos_ids_pedidos_gemini")
 
-    if (ahora - ultima_llamada) >= SEGUNDOS_MIN_ENTRE_LLAMADAS_GEMINI and baseline_state and smart_state:
+    hay_pedidos_nuevos = ids_previos_gemini != ids_actuales
+    paso_tiempo_minimo = (
+        True if not modo_automatico
+        else (ahora - ultima_llamada) >= SEGUNDOS_MIN_ENTRE_LLAMADAS_GEMINI
+    )
+
+    if hay_pedidos_nuevos and paso_tiempo_minimo and baseline_state and smart_state:
         resultado_gemini = explicar_evento_con_dev3(
             evento_texto=f"Condición actual en Monterrey: {evento_actual}",
-            pedidos=pedidos,
+            pedidos=pedidos_a_procesar,
             baseline_state=baseline_state,
             smart_state=smart_state,
         )
         st.session_state["ultima_llamada_gemini_ts"] = ahora
+        st.session_state["ultimos_ids_pedidos_gemini"] = ids_actuales
         st.session_state["ultimo_veredicto_texto"] = resultado_gemini.get(
             "explicacion_gemini", "Evaluando con Gemini..."
         )
@@ -307,5 +351,6 @@ with col_naranja:
 # ==========================================
 # 4. CICLO DE ACTUALIZACION
 # ==========================================
-time.sleep(15)
-st.rerun()
+if modo_automatico:
+    time.sleep(4)
+    st.rerun()
