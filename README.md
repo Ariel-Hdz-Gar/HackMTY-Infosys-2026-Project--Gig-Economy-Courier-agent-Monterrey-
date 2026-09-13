@@ -3,6 +3,8 @@
 # 🚀 CourierAI
 ### Autonomous AI Dispatch & Routing Agent for Last-Mile Logistics in Monterrey
 
+[![Live Demo](https://img.shields.io/badge/🌐_LIVE_DEMO-Streamlit_AWS-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](http://54.89.200.159:8501)
+
 [![HackMTY 2026](https://img.shields.io/badge/Hackathon-HackMTY%202026-orange.svg)](https://hackmty.com/)
 [![Track Infosys](https://img.shields.io/badge/Track-Infosys-blue.svg)]()
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
@@ -11,6 +13,17 @@
 [![Streamlit](https://img.shields.io/badge/Frontend-Streamlit-FF4B4B.svg?logo=streamlit&logoColor=white)](https://streamlit.io/)
 
 </div>
+
+---
+
+## 🌐 Live Web Application & Demo
+
+> [!IMPORTANT]
+> **Experience CourierAI Live in Action:**
+> 
+> 👉 **[http://54.89.200.159:8501](http://54.89.200.159:8501)**
+> 
+> *Hosted live on AWS EC2 featuring real-time Monterrey road map rendering, Gemini 2.5 Pro decision explainability, and live financial comparison metrics.*
 
 ---
 
