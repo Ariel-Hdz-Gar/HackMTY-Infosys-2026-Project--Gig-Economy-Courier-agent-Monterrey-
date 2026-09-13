@@ -27,7 +27,7 @@
 
 ---
 
-## 📌 Overview
+## Overview
 
 **CourierAI** is an autonomous AI-driven logistics simulation and routing platform designed for gig economy delivery couriers in **Monterrey, Mexico**.
 
@@ -35,7 +35,7 @@ Traditional last-mile delivery platforms rely on static greedy heuristics (Basel
 
 ---
 
-## 🏗️ System Architecture
+##  System Architecture
 
 The project is structured into four decoupled, microservice-like layers:
 
@@ -67,20 +67,20 @@ The project is structured into four decoupled, microservice-like layers:
 
 ---
 
-## ✨ Key Features
+##  Key Features
 
-- 🗺️ **Real-World Monterrey Road Topology:** Built on OpenStreetMap (`OSMnx` & `NetworkX`) representing thousands of street nodes in Monterrey, N.L.
-- ⚡ **Real-Time Order Generator & Simulator:** Streams simulated orders with dynamic fares, time windows, weather alerts, and automatic 20-second delivery lifecycle processing.
-- 🧠 **Dual Agent Comparison (SMART vs Baseline):**
+-  **Real-World Monterrey Road Topology:** Built on OpenStreetMap (`OSMnx` & `NetworkX`) representing thousands of street nodes in Monterrey, N.L.
+-  **Real-Time Order Generator & Simulator:** Streams simulated orders with dynamic fares, time windows, weather alerts, and automatic 20-second delivery lifecycle processing.
+-  **Dual Agent Comparison (SMART vs Baseline):**
   - **Baseline Agent:** Greedy FIFO dispatch algorithm (nearest node / first-come-first-serve).
   - **SMART Agent:** Cost-aware decision engine backed by Google OR-Tools and dynamic risk pricing.
-- 💬 **Gemini 2.5 Pro Explainability Microservice:** Evaluates contextual events (e.g., heavy rain in Avenida Constitución) and generates natural language explanations for delivery decisions in 1-2 seconds (`temperature=0.0`).
-- 📊 **Tiger Data Cloud Persistence:** Stores live telemetry, transaction ledgers, net profit calculations, and decision logs on **Timescale Cloud (PostgreSQL)**.
-- 📍 **Interactive Map UI:** Renders live driver routes side-by-side using Folium with automatic offset polylines to prevent visual overlap.
+-  **Gemini 2.5 Pro Explainability Microservice:** Evaluates contextual events (e.g., heavy rain in Avenida Constitución) and generates natural language explanations for delivery decisions in 1-2 seconds (`temperature=0.0`).
+-  **Tiger Data Cloud Persistence:** Stores live telemetry, transaction ledgers, net profit calculations, and decision logs on **Timescale Cloud (PostgreSQL)**.
+-  **Interactive Map UI:** Renders live driver routes side-by-side using Folium with automatic offset polylines to prevent visual overlap.
 
 ---
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 | Component | Technology |
 |---|---|
@@ -94,7 +94,7 @@ The project is structured into four decoupled, microservice-like layers:
 
 ---
 
-## 📁 Repository Structure
+##  Repository Structure
 
 ```text
 ├── Backend/
@@ -121,7 +121,7 @@ The project is structured into four decoupled, microservice-like layers:
 
 ---
 
-## 🗄️ Database Schema (Tiger Data - Timescale Cloud)
+## Database Schema (Tiger Data - Timescale Cloud)
 
 ```sql
 -- Orders Table
@@ -153,7 +153,7 @@ CREATE TABLE decisiones (
 
 ---
 
-## 🚀 Quick Start & Local Execution
+##  Quick Start & Local Execution
 
 ### 1. Prerequisites
 - Python 3.11+
@@ -205,7 +205,7 @@ chmod +x Start.sh
 
 ---
 
-## 🏆 Hackathon Credits
+##  Hackathon Credits
 
 Developed for **HackMTY 2026** — **Track Infosys**:
 - **Santiago (Dev 1):** Environment Simulation, OSMnx Road Networks & Timescale Cloud Database Architecture.
