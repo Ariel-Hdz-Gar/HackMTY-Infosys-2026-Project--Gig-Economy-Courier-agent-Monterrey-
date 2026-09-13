@@ -11,28 +11,28 @@ class GeminiMediator:
 
     def evaluar_y_decidir(self, datos: SolicitudMediacion) -> str:
         prompt = f"""
-        Eres 'CourierAI', el sistema mediador de inteligencia logística para repartidores en Monterrey, Nuevo León.
-        Tu trabajo es comparar dos propuestas de ruta y seleccionar LA MEJOR OPCIÓN objetivamente para el repartidor.
+        Eres el sistema de inteligencia logística 'CourierAI' operando en Monterrey, Nuevo León.
+        Tu objetivo es evaluar dos rutas y justificar la mejor opción para el repartidor en tiempo real.
 
-        [CONDICIONES DEL ENTORNO]
+        [CONDICIONES EN MONTERREY]
         Evento actual: {datos.evento_contexto}
 
         [OPCIÓN 1 - AGENTE BASELINE]
-        - Ruta propuesta: {", ".join(datos.opcion_baseline.ruta_nodos)}
-        - Tiempo estimado: {datos.opcion_baseline.tiempo_est_min} minutos
-        - Ganancia neta: ${datos.opcion_baseline.ganancia_neta_mxn} MXN
-        - Argumento del agente: {datos.opcion_baseline.argumento_agente}
+        Ruta propuesta: {", ".join(datos.opcion_baseline.ruta_nodos)}
+        Tiempo estimado: {datos.opcion_baseline.tiempo_est_min} minutos
+        Ganancia neta: ${datos.opcion_baseline.ganancia_neta_mxn} MXN
+        Lógica del agente: {datos.opcion_baseline.argumento_agente}
 
-        [OPCIÓN 2 - AGENTE SMART]
-        - Ruta propuesta: {", ".join(datos.opcion_smart.ruta_nodos)}
-        - Tiempo estimado: {datos.opcion_smart.tiempo_est_min} minutos
-        - Ganancia neta: ${datos.opcion_smart.ganancia_neta_mxn} MXN
-        - Argumento del agente: {datos.opcion_smart.argumento_agente}
+        [OPCIÓN 2 - AGENTE SMART (OR-TOOLS)]
+        Ruta propuesta: {", ".join(datos.opcion_smart.ruta_nodos)}
+        Tiempo estimado: {datos.opcion_smart.tiempo_est_min} minutos
+        Ganancia neta: ${datos.opcion_smart.ganancia_neta_mxn} MXN
+        Lógica del agente: {datos.opcion_smart.argumento_agente}
 
-        INSTRUCCIONES DE EVALUACIÓN:
-        1. Compara ambas opciones evaluando: mayor ganancia neta, menor tiempo de traslado y menor riesgo ante el evento actual en Monterrey.
-        2. Selecciona la mejor opción (ya sea Baseline o Smart) basándote estrictamente en cuál conviene más al repartidor.
-        3. Redacta una justificación concisa (máximo 3 oraciones), profesional y directa para la pantalla del repartidor indicando claramente la opción ganadora y el porqué.
+        INSTRUCCIONES DE RESPUESTA:
+        1. Confirma que la Opción 2 (Smart) es la elegida debido a su eficiencia matemática y rentabilidad.
+        2. Explica brevemente (máximo 3 oraciones) por qué esta decisión es superior considerando las vialidades y el evento en Monterrey.
+        3. Mantén un tono profesional, claro y directo para la pantalla del repartidor.
         """
 
         try:
@@ -45,4 +45,5 @@ class GeminiMediator:
             )
             return response.text
         except Exception as e:
-            return f"Error al generar decisión con Gemini: {str(e)}"
+            print(f"\n❌ ERROR LLAMANDO A GEMINI: {e}\n")
+            raise e
