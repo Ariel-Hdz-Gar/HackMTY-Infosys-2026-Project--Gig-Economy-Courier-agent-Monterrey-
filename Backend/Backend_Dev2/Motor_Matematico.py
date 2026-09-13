@@ -173,6 +173,47 @@ def obtener_ruta_coordenadas(origen: tuple, destino: tuple) -> list:
     return [list(origen), list(destino)]
 
 
+def obtener_ruta_coordenadas_evitando_eventos(origen: tuple, destino: tuple) -> list:
+    """Como obtener_ruta_coordenadas(), pero para SMART: penaliza fuertemente
+    las calles dentro de cualquier zona con evento activo (activar_evento),
+    forzando al algoritmo a buscar un desvío en vez de cruzar directo por
+    ahí. Baseline sigue usando obtener_ruta_coordenadas() normal -- ese es
+    justo el contraste que quieres mostrar: Baseline va derecho sin pensar,
+    Smart rodea el problema.
+
+    Si no hay ninguna zona con evento activo en este momento, regresa
+    exactamente la misma ruta que obtener_ruta_coordenadas() (no hay nada
+    que evitar, así que no tiene sentido desviarse)."""
+    if not _GRAFO_DISPONIBLE or not _penalizaciones_zona:
+        return obtener_ruta_coordenadas(origen, destino)
+
+    try:
+        import networkx as nx
+        grafo = _get_grafo()
+        n1 = _nodo_cercano(*origen)
+        n2 = _nodo_cercano(*destino)
+
+        # Copia local de las zonas activas para no depender de closures raras
+        zonas_activas = list(_penalizaciones_zona.keys())  # [(lat, lon, radio_km), ...]
+
+        def _peso_evitando_zonas(u, v, datos_arista):
+            longitud = datos_arista.get("length", 1.0)
+            lat_u = grafo.nodes[u].get("y")
+            lon_u = grafo.nodes[u].get("x")
+            if lat_u is None or lon_u is None:
+                return longitud
+            for lat_z, lon_z, radio in zonas_activas:
+                if _haversine_km((lat_u, lon_u), (lat_z, lon_z)) <= radio:
+                    return longitud * 25.0  # penalización fuerte -> el algoritmo prefiere rodear
+            return longitud
+
+        camino_nodos = nx.shortest_path(grafo, n1, n2, weight=_peso_evitando_zonas)
+        return [[grafo.nodes[n]["y"], grafo.nodes[n]["x"]] for n in camino_nodos]
+    except Exception as e:
+        logger.warning(f"No se pudo calcular ruta evitando eventos ({e}); usando ruta directa.")
+        return obtener_ruta_coordenadas(origen, destino)
+
+
 # ---------------------------------------------------------------------------
 # 3. PARÁMETROS DE COSTO (calibrar en Horas 31-32)
 # ---------------------------------------------------------------------------
