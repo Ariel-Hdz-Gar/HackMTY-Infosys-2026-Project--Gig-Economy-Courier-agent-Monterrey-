@@ -25,4 +25,4 @@ psycopg2-binary>=2.9.9
 
 # --- Frontend ---
 streamlit
-streamlit-folium
+streamlit-folium>=0.20
