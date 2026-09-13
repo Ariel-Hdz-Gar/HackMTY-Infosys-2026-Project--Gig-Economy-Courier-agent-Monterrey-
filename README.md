@@ -22,7 +22,7 @@ Traditional last-mile delivery platforms rely on static greedy heuristics (Basel
 
 ---
 
-## 🏗️ System Architecture
+##  System Architecture
 
 The project is structured into four decoupled, microservice-like layers:
 
@@ -54,7 +54,7 @@ The project is structured into four decoupled, microservice-like layers:
 
 ---
 
-## ✨ Key Features
+##  Key Features
 
 - 🗺️ **Real-World Monterrey Road Topology:** Built on OpenStreetMap (`OSMnx` & `NetworkX`) representing thousands of street nodes in Monterrey, N.L.
 - ⚡ **Real-Time Order Generator & Simulator:** Streams simulated orders with dynamic fares, time windows, weather alerts, and automatic 20-second delivery lifecycle processing.
