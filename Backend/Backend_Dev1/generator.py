@@ -16,7 +16,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("generator")
 
-ORDER_INTERVAL = float(os.getenv("ORDER_INTERVAL_SECONDS", "4"))
+ORDER_INTERVAL = float(os.getenv("ORDER_INTERVAL_SECONDS", "20"))
 MIN_BASE_FARE = float(os.getenv("ORDER_MIN_FARE", "40.0"))
 MAX_BASE_FARE = float(os.getenv("ORDER_MAX_FARE", "180.0"))
 TIME_WINDOW_SEC = int(os.getenv("ORDER_TIME_WINDOW_SECONDS", "2400"))
